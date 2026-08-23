@@ -16,7 +16,9 @@ def _load_schema(name: str) -> dict:
 
 
 def _parse_datetime(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    return datetime.fromisoformat(value)
 
 
 def validate_provider_binding_semantics(binding: dict, *, as_of: datetime) -> None:
@@ -145,6 +147,27 @@ class SilkSchemaSemanticTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             self.instruction_validator.validate(missing_currency)
 
+    def test_revenue_share_can_be_right_before_payment_compilation(self):
+        instruction = {
+            "silk_instruction_id": "silk:instruction:test:revenue-share-right",
+            "principal_ref": "digitalme:test:a",
+            "silk_account_ref": "silk:account:test:a",
+            "instruction_type": "REVENUE_SHARE",
+            "objective": "Record governed revenue-share entitlement before cash realization",
+            "value": {
+                "kind": "RIGHT",
+                "unit": "REVENUE_SHARE_BPS",
+                "asset_ref": "right:test:revenue-share-001",
+            },
+            "state": "DRAFT",
+            "idempotency_key": "revenue-share-right-v1",
+            "created_at": "2026-08-23T05:00:00Z",
+            "version": "R0.1",
+        }
+        self.instruction_validator.validate(instruction)
+        self.assertNotIn("amount", instruction["value"])
+        self.assertNotIn("currency", instruction["value"])
+
     def test_money_amount_is_decimal_string_not_binary_float(self):
         instruction = {
             "silk_instruction_id": "silk:instruction:test:payment-float",
@@ -160,6 +183,38 @@ class SilkSchemaSemanticTests(unittest.TestCase):
         }
         with self.assertRaises(ValidationError):
             self.instruction_validator.validate(instruction)
+
+    def test_executed_exception_states_require_full_lineage(self):
+        for state in ("PARTIALLY_SETTLED", "REVERSED", "DISPUTED"):
+            with self.subTest(state=state):
+                instruction = {
+                    "silk_instruction_id": f"silk:instruction:test:{state.lower()}",
+                    "principal_ref": "digitalme:test:a",
+                    "silk_account_ref": "silk:account:test:a",
+                    "instruction_type": "PAYMENT",
+                    "objective": f"Exercise fail-closed {state} state",
+                    "value": {"kind": "MONEY", "amount": "10.00", "currency": "INR"},
+                    "warden_decision_ref": "warden:decision:test:a",
+                    "execution_route_ref": "synnergyze:route:test:a",
+                    "river_evidence_refs": ["river:receipt:test:a"],
+                    "exception_ref": "warden:exception:test:a",
+                    "state": state,
+                    "idempotency_key": f"{state.lower()}-v1",
+                    "created_at": "2026-08-23T05:00:00Z",
+                    "version": "R0.1",
+                }
+                self.instruction_validator.validate(instruction)
+
+                for required_ref in (
+                    "warden_decision_ref",
+                    "execution_route_ref",
+                    "river_evidence_refs",
+                    "exception_ref",
+                ):
+                    invalid = copy.deepcopy(instruction)
+                    invalid.pop(required_ref)
+                    with self.assertRaises(ValidationError):
+                        self.instruction_validator.validate(invalid)
 
     def test_expired_provider_binding_requires_non_null_valid_until(self):
         binding = {
