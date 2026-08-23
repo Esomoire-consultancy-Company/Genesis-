@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:vsr:silk:schema:account:r0.1",
+  "title": "SILK Account R0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "silk_account_id",
+    "principal_ref",
+    "account_class",
+    "status",
+    "created_at",
+    "version"
+  ],
+  "properties": {
+    "silk_account_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "principal_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Canonical Genesis/DigitalMe or recognised principal reference."
+    },
+    "account_class": {
+      "type": "string",
+      "enum": [
+        "PERSONAL",
+        "CREATOR",
+        "BUSINESS",
+        "LOCATION",
+        "PROGRAMME",
+        "ARC",
+        "INSTITUTION",
+        "COMMONS"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["PROVISIONAL", "ACTIVE", "SUSPENDED", "CLOSED"]
+    },
+    "provider_binding_refs": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "default": []
+    },
+    "programme_refs": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "default": []
+    },
+    "arc_refs": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "default": []
+    },
+    "entitlement_refs": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "default": []
+    },
+    "obligation_refs": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "default": []
+    },
+    "settlement_route_refs": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "default": []
+    },
+    "reconciliation_state": {
+      "type": "string",
+      "enum": ["CLEAR", "OPEN", "REQUIRED", "DISPUTED"],
+      "default": "CLEAR"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "version": {
+      "const": "R0.1"
+    }
+  }
+}
