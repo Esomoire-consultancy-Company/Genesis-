@@ -5,8 +5,10 @@ on:
     paths:
       - "contracts/silk/**"
       - "docs/architecture/SILK-*.md"
+      - "runtime/**"
       - "tests/contracts/**"
       - "tests/fixtures/silk/**"
+      - "tests/runtime/**"
       - ".github/workflows/silk-contracts.yml"
   workflow_dispatch:
 
@@ -29,8 +31,11 @@ jobs:
       - name: Install contract validator
         run: python -m pip install --disable-pip-version-check "jsonschema[format-nongpl]==4.26.0"
 
-      - name: Compile contract tests
-        run: python -m compileall -q tests/contracts
+      - name: Compile SILK and NMK verification code
+        run: python -m compileall -q runtime tests/contracts tests/runtime
 
       - name: Run SILK contract tests
         run: python -m unittest discover -s tests/contracts -p "test_*.py" -v
+
+      - name: Run NMK Alpha runtime tests
+        run: python -m unittest discover -s tests/runtime -p "test_*.py" -v
