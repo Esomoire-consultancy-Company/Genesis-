@@ -43,6 +43,7 @@ class SilkSchemaSemanticTests(unittest.TestCase):
         cls.instruction_schema = _load_schema("silk-instruction.schema.json")
         cls.event_schema = _load_schema("silk-event.schema.json")
         cls.provider_schema = _load_schema("silk-provider-binding.schema.json")
+        cls.provider_result_schema = _load_schema("silk-provider-result.schema.json")
         cls.account_schema = _load_schema("silk-account.schema.json")
 
         checker = FormatChecker()
@@ -55,6 +56,9 @@ class SilkSchemaSemanticTests(unittest.TestCase):
         cls.provider_validator = Draft202012Validator(
             cls.provider_schema, format_checker=checker
         )
+        cls.provider_result_validator = Draft202012Validator(
+            cls.provider_result_schema, format_checker=checker
+        )
         cls.account_validator = Draft202012Validator(
             cls.account_schema, format_checker=checker
         )
@@ -64,6 +68,7 @@ class SilkSchemaSemanticTests(unittest.TestCase):
             self.instruction_schema,
             self.event_schema,
             self.provider_schema,
+            self.provider_result_schema,
             self.account_schema,
         ):
             Draft202012Validator.check_schema(schema)
