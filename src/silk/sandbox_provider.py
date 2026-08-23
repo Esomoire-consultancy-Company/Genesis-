@@ -25,11 +25,16 @@ _CAPABILITY_BY_INSTRUCTION = {
 
 
 def _parse_datetime(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    return datetime.fromisoformat(value)
 
 
 def _iso(value: datetime) -> str:
-    return value.isoformat().replace("+00:00", "Z")
+    encoded = value.isoformat()
+    if encoded.endswith("+00:00"):
+        encoded = encoded[:-6] + "Z"
+    return encoded
 
 
 def _fingerprint(instruction: dict, binding: dict) -> str:
