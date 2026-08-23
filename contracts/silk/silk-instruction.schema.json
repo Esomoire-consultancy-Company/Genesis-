@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:vsr:silk:schema:instruction:r0.1",
+  "title": "SILK Instruction R0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "silk_instruction_id",
+    "principal_ref",
+    "silk_account_ref",
+    "instruction_type",
+    "objective",
+    "state",
+    "idempotency_key",
+    "created_at",
+    "version"
+  ],
+  "properties": {
+    "silk_instruction_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "principal_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "silk_account_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "instruction_type": {
+      "type": "string",
+      "enum": [
+        "PAYMENT",
+        "COLLECTION",
+        "SETTLEMENT",
+        "REFUND",
+        "REMITTANCE",
+        "ENTITLEMENT_GRANT",
+        "ENTITLEMENT_TRANSFER",
+        "LICENCE_GRANT",
+        "REVENUE_SHARE",
+        "ROYALTY",
+        "PURCHASE_ORDER",
+        "INVOICE",
+        "RECEIVABLE",
+        "OBLIGATION",
+        "CARBON_CREDIT",
+        "MISSION_ALLOCATION",
+        "INCENTIVE",
+        "BONUS",
+        "ASSET_PARTICIPATION",
+        "CREATOR_PARTICIPATION",
+        "COMMONS_PARTICIPATION"
+      ]
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1
+    },
+    "counterparty_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "programme_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "right_or_obligation_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "value": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["MONEY", "ASSET", "RIGHT", "SERVICE", "CREDIT", "PARTICIPATION"]
+        },
+        "amount": {
+          "type": "number"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "asset_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "authority_requirement_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "warden_decision_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "execution_route_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_binding_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence_policy_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "river_evidence_refs": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "default": []
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "DRAFT",
+        "RESOLVED",
+        "AWAITING_AUTHORITY",
+        "WARDEN_AUTHORIZED",
+        "ROUTE_SELECTED",
+        "EXECUTION_REQUESTED",
+        "PROVIDER_ACCEPTED",
+        "SETTLEMENT_PENDING",
+        "SETTLED",
+        "RIVER_OBSERVED",
+        "RECONCILED",
+        "FINAL",
+        "DENIED",
+        "EXPIRED",
+        "FAILED",
+        "REVERSED",
+        "DISPUTED",
+        "PARTIALLY_SETTLED",
+        "RECONCILIATION_REQUIRED",
+        "COMPENSATION_REQUIRED"
+      ]
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "version": {
+      "const": "R0.1"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "WARDEN_AUTHORIZED",
+              "ROUTE_SELECTED",
+              "EXECUTION_REQUESTED",
+              "PROVIDER_ACCEPTED",
+              "SETTLEMENT_PENDING",
+              "SETTLED",
+              "RIVER_OBSERVED",
+              "RECONCILED",
+              "FINAL"
+            ]
+          }
+        },
+        "required": ["state"]
+      },
+      "then": {
+        "required": ["warden_decision_ref"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "EXECUTION_REQUESTED",
+              "PROVIDER_ACCEPTED",
+              "SETTLEMENT_PENDING",
+              "SETTLED",
+              "RIVER_OBSERVED",
+              "RECONCILED",
+              "FINAL"
+            ]
+          }
+        },
+        "required": ["state"]
+      },
+      "then": {
+        "required": ["execution_route_ref"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": ["RIVER_OBSERVED", "RECONCILED", "FINAL"]
+          }
+        },
+        "required": ["state"]
+      },
+      "then": {
+        "required": ["river_evidence_refs"]
+      }
+    }
+  ]
+}
