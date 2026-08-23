@@ -39,42 +39,12 @@
       "type": "string",
       "enum": ["PROVISIONAL", "ACTIVE", "SUSPENDED", "CLOSED"]
     },
-    "provider_binding_refs": {
-      "type": "array",
-      "items": {"type": "string", "minLength": 1},
-      "uniqueItems": true,
-      "default": []
-    },
-    "programme_refs": {
-      "type": "array",
-      "items": {"type": "string", "minLength": 1},
-      "uniqueItems": true,
-      "default": []
-    },
-    "arc_refs": {
-      "type": "array",
-      "items": {"type": "string", "minLength": 1},
-      "uniqueItems": true,
-      "default": []
-    },
-    "entitlement_refs": {
-      "type": "array",
-      "items": {"type": "string", "minLength": 1},
-      "uniqueItems": true,
-      "default": []
-    },
-    "obligation_refs": {
-      "type": "array",
-      "items": {"type": "string", "minLength": 1},
-      "uniqueItems": true,
-      "default": []
-    },
-    "settlement_route_refs": {
-      "type": "array",
-      "items": {"type": "string", "minLength": 1},
-      "uniqueItems": true,
-      "default": []
-    },
+    "provider_binding_refs": {"$ref": "#/$defs/refArray"},
+    "programme_refs": {"$ref": "#/$defs/refArray"},
+    "arc_refs": {"$ref": "#/$defs/refArray"},
+    "entitlement_refs": {"$ref": "#/$defs/refArray"},
+    "obligation_refs": {"$ref": "#/$defs/refArray"},
+    "settlement_route_refs": {"$ref": "#/$defs/refArray"},
     "reconciliation_state": {
       "type": "string",
       "enum": ["CLEAR", "OPEN", "REQUIRED", "DISPUTED"],
@@ -90,6 +60,14 @@
     },
     "version": {
       "const": "R0.1"
+    }
+  },
+  "$defs": {
+    "refArray": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "default": []
     }
   }
 }
