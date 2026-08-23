@@ -58,6 +58,7 @@ class JourneyRecord:
     programme_ref: str
     programme_instance_ref: str
     capability_ref: str
+    request_payload: dict[str, Any] = field(default_factory=dict)
     route_manifest: RouteManifest | None = None
     statuses: dict[str, str] = field(
         default_factory=lambda: {
@@ -74,6 +75,7 @@ class JourneyRecord:
     event_log: list[dict[str, Any]] = field(default_factory=list)
     commercial_event: dict[str, Any] | None = None
     settlement: dict[str, Any] | None = None
+    empire_projection: dict[str, Any] | None = None
     reconciliation: dict[str, Any] | None = None
 
 
@@ -274,15 +276,16 @@ class AlphaRuntime:
         programme_ref: str,
         programme_instance_ref: str,
         capability_ref: str,
+        request_payload: dict[str, Any],
         source_decision: WardenDecision,
     ) -> JourneyRecord:
         semantic_request = {
-            "request_id": request_id,
             "principal_ref": principal_ref,
             "silk_account_ref": silk_account_ref,
             "programme_ref": programme_ref,
             "programme_instance_ref": programme_instance_ref,
             "capability_ref": capability_ref,
+            "payload": deepcopy(request_payload),
         }
         existing = self._request_idempotency.get(idempotency_key)
         if existing:
@@ -304,18 +307,13 @@ class AlphaRuntime:
             programme_ref=programme_ref,
             programme_instance_ref=programme_instance_ref,
             capability_ref=capability_ref,
+            request_payload=deepcopy(request_payload),
         )
         journey.statuses["authority"] = "PARTIALLY_AUTHORIZED"
         self._journeys[journey.journey_id] = journey
         self._request_idempotency[idempotency_key] = (
             deepcopy(semantic_request),
             journey.journey_id,
-        )
-        self._emit(
-            journey,
-            "silk.journey.created",
-            actor_ref=principal_ref,
-            object_ref=journey.journey_id,
         )
         return journey
 
@@ -415,12 +413,12 @@ class AlphaRuntime:
 
     def execute_fixture_a(self, request: dict[str, Any]) -> dict[str, Any]:
         semantic_request = {
-            "request_id": request["request_id"],
             "principal_ref": request["principal_ref"],
             "silk_account_ref": request["silk_account_ref"],
             "programme_ref": "VSR-ROUTE-SERVICE-001",
             "programme_instance_ref": "PI-ROUTE-FACTORY-001",
             "capability_ref": request["requested_capability"],
+            "payload": deepcopy(request.get("payload", {})),
         }
         existing = self._request_idempotency.get(request["idempotency_key"])
         if existing:
@@ -450,26 +448,27 @@ class AlphaRuntime:
             programme_ref=context["programme_ref"],
             programme_instance_ref=context["programme_instance_ref"],
             capability_ref=context["capability_ref"],
+            request_payload=request.get("payload", {}),
             source_decision=source_decision,
         )
-        journey.event_log.insert(
-            0,
-            {
-                "sequence": 1,
-                "event_type": "digitalme.context.resolved",
-                "journey_id": journey.journey_id,
-                "actor_ref": context["principal_ref"],
-                "object_ref": context["silk_account_ref"],
-            },
-        )
-        for index, event in enumerate(journey.event_log, start=1):
-            event["sequence"] = index
 
+        self._emit(
+            journey,
+            "digitalme.context.resolved",
+            actor_ref=context["principal_ref"],
+            object_ref=context["silk_account_ref"],
+        )
         self._emit(
             journey,
             "warden.decision.issued",
             actor_ref="WARDEN",
             object_ref=source_decision.decision_id,
+        )
+        self._emit(
+            journey,
+            "silk.journey.created",
+            actor_ref=context["principal_ref"],
+            object_ref=journey.journey_id,
         )
 
         provider_arc_ref, product_ref = self.resolve_route(journey)
@@ -504,9 +503,15 @@ class AlphaRuntime:
                 object_ref="EP-A-001",
             )
 
+            payload = journey.request_payload
             route_result = {
                 "route_result_id": "ROUTE-RESULT-A-001",
-                "route": ["LOCATION-A", "NODE-01", "NODE-02", "LOCATION-B"],
+                "route": [
+                    payload.get("origin", "LOCATION-A"),
+                    "NODE-01",
+                    "NODE-02",
+                    payload.get("destination", "LOCATION-B"),
+                ],
                 "distance_km": "42.5",
                 "status": "GENERATED",
             }
@@ -549,7 +554,10 @@ class AlphaRuntime:
                 "receipt_id": "RR-A-001",
                 "evidence_status": "SUFFICIENT",
                 "effect_status": "CONFORMING",
-                "evidence_refs": [evidence["evidence_id"], genesis_transition["transition_id"]],
+                "evidence_refs": [
+                    evidence["evidence_id"],
+                    genesis_transition["transition_id"],
+                ],
             }
             journey.statuses["evidence"] = effect_receipt["evidence_status"]
             journey.statuses["effect"] = effect_receipt["effect_status"]
@@ -568,6 +576,12 @@ class AlphaRuntime:
             journey.commercial_event = commercial_event
             journey.statuses["commercial"] = "COMPILED"
 
+            self._emit(
+                journey,
+                "settlement.requested",
+                actor_ref="SILK",
+                object_ref="SET-A-001",
+            )
             journey.settlement = {
                 "settlement_id": "SET-A-001",
                 "commercial_event_ref": commercial_event["commercial_event_id"],
@@ -583,6 +597,26 @@ class AlphaRuntime:
         finally:
             self._release_capacity(journey, reserved)
 
+        journey.empire_projection = {
+            "projection_id": "EMP-A-001",
+            "journey_id": journey.journey_id,
+            "principal_ref": journey.principal_ref,
+            "programme_ref": journey.programme_ref,
+            "provider_arc_ref": "QARC-E-PROVIDER-001",
+            "product_ref": product_ref,
+            "execution": journey.statuses["execution"],
+            "effect": journey.statuses["effect"],
+            "gross_value": (journey.commercial_event or {}).get("gross_value"),
+            "settlement": journey.statuses["settlement"],
+            "bnr_consumption": {"COMPUTE": 2, "NETWORK": 1, "STORAGE": 1},
+        }
+        self._emit(
+            journey,
+            "empire.projection.updated",
+            actor_ref="EMPIRE",
+            object_ref=journey.empire_projection["projection_id"],
+        )
+
         allocations = journey.commercial_event["allocations"] if journey.commercial_event else []
         checks = {
             "authority": journey.statuses["authority"] == "AUTHORIZED",
@@ -594,7 +628,14 @@ class AlphaRuntime:
             "settlement": journey.statuses["settlement"] == "CONFIRMED",
             "capacity_released": self.capacity
             == {"COMPUTE": 100, "NETWORK": 100, "STORAGE": 100},
+            "projection": journey.empire_projection is not None,
         }
+        self._emit(
+            journey,
+            "reconciliation.started",
+            actor_ref="RECONCILIATION",
+            object_ref="REC-A-001",
+        )
         if not all(checks.values()):
             raise AlphaRuntimeError("RECONCILIATION_FAILED")
 
@@ -644,6 +685,13 @@ class AlphaRuntime:
             actor_ref="COMMERCIAL_COMPILER",
             object_ref=event["commercial_event_id"],
         )
+        for index, allocation in enumerate(event["allocations"], start=1):
+            self._emit(
+                journey,
+                "commercial.allocation.created",
+                actor_ref="COMMERCIAL_COMPILER",
+                object_ref=f'{event["commercial_event_id"]}:allocation:{index}:{allocation["type"]}',
+            )
         return event
 
     def get_journey(self, journey_id: str) -> dict[str, Any]:
@@ -657,6 +705,7 @@ class AlphaRuntime:
             "programme_ref": journey.programme_ref,
             "programme_instance_ref": journey.programme_instance_ref,
             "capability_ref": journey.capability_ref,
+            "request_payload": deepcopy(journey.request_payload),
             "route": None
             if route is None
             else {
@@ -677,6 +726,7 @@ class AlphaRuntime:
             "statuses": deepcopy(journey.statuses),
             "commercial_event": deepcopy(journey.commercial_event),
             "settlement": deepcopy(journey.settlement),
+            "empire_projection": deepcopy(journey.empire_projection),
             "reconciliation": deepcopy(journey.reconciliation),
             "event_log": deepcopy(journey.event_log),
         }
