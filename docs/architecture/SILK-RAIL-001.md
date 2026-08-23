@@ -18,7 +18,7 @@ The following boundaries are normative for R0.1:
 - **Genesis** is the canonical registry for principal, relationship, organisation, location, and SILK binding state.
 - **DigitalMe** is the principal identity context for a person or other recognised actor.
 - **Warden** is the authority, consent, and policy decision boundary. SILK MUST NOT self-authorise an instruction.
-- **SILK Account** is a participation account that references rights, obligations, provider bindings, programmes, routes, and reconciliation state. It is not a bank account and is not, by itself, a custodial wallet.
+- **SILK Account** is a participation account that references roles, licences, rights, obligations, provider bindings, programmes, routes, and reconciliation state. It is not a bank account and is not, by itself, a custodial wallet.
 - **Synnergyze** selects and orchestrates execution capabilities after authority has been established.
 - **External regulated providers** perform regulated money movement or regulated network services under their own credentials and controls.
 - **RiverOS** records evidence, receipts, observations, and realised effects.
@@ -43,18 +43,16 @@ The SILK Instruction exists before Warden decides it. Warden authorises or denie
 
 ## 4. SILK Account classes
 
-R0.1 defines the following account classes:
+SILK has exactly four account classes in this edition:
 
-- `PERSONAL`
-- `CREATOR`
-- `BUSINESS`
-- `LOCATION`
-- `PROGRAMME`
-- `ARC`
-- `INSTITUTION`
-- `COMMONS`
+- `INDIVIDUAL_STUDENT`
+- `FAMILY`
+- `ENTERPRISE`
+- `INSTITUTIONAL`
 
-Account class describes participation context. It does not grant authority or regulated financial permissions.
+Creator is a role/licence relationship, not an account class. Programme, Location, ARC, Commons, commercial roles, creator rights, and similar participation contexts are represented through governed relationships, memberships, licences, entitlements, and references attached to one of the four SILK account classes.
+
+Account class describes the principal participation container. It does not grant authority or regulated financial permissions.
 
 ## 5. SILK instruction classes
 
@@ -97,7 +95,32 @@ This list is extensible by later governed editions. New instruction types MUST d
 
 Monetary instruction values MUST use decimal strings, not binary floating-point JSON numbers. Applicable currency/asset scale is governed by the selected provider or asset policy.
 
-## 6. Instruction lifecycle
+## 6. Ordered federation route
+
+A SILK journey that crosses more than one ARC, programme boundary, custody boundary, or commercial responsibility boundary MUST preserve the journey as an ordered `federation_route[]` rather than reducing the transaction to a source and destination pair.
+
+Each federation hop records at minimum:
+
+- zero-based `hop_index`;
+- `arc_ref`;
+- `from_silk_account_ref`;
+- `to_silk_account_ref`;
+- the Warden decision governing that hop.
+
+A hop MAY additionally preserve:
+
+- custody state before and after the hop;
+- commercial obligation references;
+- River/evidence references.
+
+The route has two semantic invariants that JSON Schema alone cannot express:
+
+1. `hop_index` values are contiguous and ordered from zero; and
+2. each hop's `to_silk_account_ref` equals the next hop's `from_silk_account_ref`.
+
+Per-hop authority does not replace the instruction-level Warden decision. It preserves local authority and custody/commercial context along a federated journey.
+
+## 7. Instruction lifecycle
 
 The canonical monetary happy-path state machine is:
 
@@ -131,18 +154,18 @@ Exception and terminal states include:
 
 Every transition MUST be attributable to an actor/system, timestamped, and linked to evidence or a decision reference where applicable.
 
-## 7. Provider binding rule
+## 8. Provider binding rule
 
 SILK stores governed references to provider relationships. R0.1 MUST NOT store plaintext secrets, private keys, bank login credentials, card secrets, UPI PINs, telecom authentication secrets, or equivalent sensitive credentials in Genesis source control.
 
 Provider bindings may identify capabilities such as:
 
-- bank account or beneficiary reference
-- payment instrument token/reference
-- UPI or payment-provider route
-- telecom/eSIM subscription reference
-- network capability
-- provider-specific account identifier
+- bank account or beneficiary reference;
+- payment instrument token/reference;
+- UPI or payment-provider route;
+- telecom/eSIM subscription reference;
+- network capability;
+- provider-specific opaque account identifier.
 
 A provider credential proves provider-side access only. It does not substitute for Warden authority.
 
@@ -154,22 +177,22 @@ Provider validity rules are fail-closed:
 - cross-field ordering and as-of-time freshness are semantic checks because JSON Schema cannot compare sibling timestamp values or evaluate wall-clock freshness by itself;
 - contract CI MUST run JSON Schema Draft 2020-12 validation with `date-time` format checking enabled.
 
-## 8. Atomic SILK meaning
+## 9. Atomic SILK meaning
 
 Every SILK movement must be explainable using the following fields:
 
 1. **Who** — principal and SILK account.
 2. **Did what** — instruction type and objective.
-3. **To/through whom** — counterparty and route.
+3. **To/through whom** — counterparty and ordered federation route.
 4. **Under what right** — contract, licence, entitlement, programme, or obligation.
-5. **With whose authority** — Warden decision reference.
+5. **With whose authority** — instruction-level and, where applicable, per-hop Warden decision references.
 6. **For what value** — money, asset, right, service, credit, or participation interest.
 7. **Using what provider** — selected external execution provider where applicable.
-8. **What happened** — RiverOS evidence and provider result.
-9. **What changed** — realised effect.
+8. **What happened** — provider result and RiverOS evidence.
+9. **What changed** — realised effect and custody/state transitions.
 10. **What remains** — open obligation, exception, dispute, reconciliation, or compensation state.
 
-## 9. Invariants
+## 10. Invariants
 
 R0.1 implementations MUST preserve these invariants:
 
@@ -178,20 +201,23 @@ R0.1 implementations MUST preserve these invariants:
 3. External provider authentication MUST NOT be treated as Warden consent.
 4. Monetary execution MUST remain separated from SILK participation semantics unless a later authorised product boundary explicitly changes this.
 5. VSR and EmpireOS MUST consume the same canonical SILK instruction/effect history rather than maintaining separate transaction truth.
-6. Every execution-capable instruction MUST be idempotent or carry an idempotency key.
+6. Every execution-capable instruction MUST carry an idempotency key and execution must be idempotent at the external boundary.
 7. Every externally executed instruction MUST be reconcilable against provider result and RiverOS evidence.
 8. Sensitive provider secrets MUST NOT be committed to this repository.
 9. Learned/derived projections MUST NOT replace Genesis, Warden, or RiverOS canonical state.
 10. A claimed observed/reconciled/final effect MUST carry at least one RiverOS evidence reference.
+11. Federated journeys MUST preserve ordered per-hop account, authority, custody, evidence, and commercial context rather than collapsing intermediate hops.
 
-## 10. R0.1 implementation scope
+## 11. R0.1 implementation scope
 
-This edition includes only contract and synthetic-proof surfaces:
+This edition includes contract and synthetic-proof surfaces:
 
 - rail authority/custody boundary;
-- SILK account schema;
+- four-class SILK account schema;
+- role/licence references separate from account classes;
 - provider binding schema;
 - SILK instruction envelope schema;
+- ordered federation-route grammar;
 - SILK event envelope and event grammar;
 - non-monetary entitlement happy-path fixture;
 - authority-denied, execution-failure/compensation, and duplicate-delivery fixtures;
@@ -201,7 +227,7 @@ It intentionally excludes:
 
 - custody of fiat or stored value;
 - live bank/UPI/payment credentials;
-- live provider adapters;
+- production provider adapters;
 - production settlement execution;
 - automatic revenue distribution;
 - tax or regulatory determination;
@@ -209,12 +235,12 @@ It intentionally excludes:
 
 Those capabilities require separate later editions, tests, provider contracts, and authority review.
 
-## 11. Reference proofs
+## 12. Reference proofs
 
-The implemented first proof is synthetic and non-custodial:
+### R0.1 non-monetary proof
 
 ```text
-DigitalMe creator
+DigitalMe principal
   -> creates ENTITLEMENT_GRANT instruction
   -> Genesis resolves the instruction context
   -> Warden authorises the exact instruction
@@ -227,9 +253,23 @@ DigitalMe creator
 
 Negative proofs cover Warden denial, duplicate delivery, execution failure, reconciliation requirement, and compensation requirement without creating new authority.
 
-The next provider-bound proof MUST remain sandbox-only and credential-free until a separate provider-adapter contract and authority review are complete.
+### R0.2 sandbox provider proof
 
-## 12. Supersession
+R0.2 adds a deterministic, credential-free provider adapter and provider-result contract. The proof exercises:
+
+```text
+EXECUTION_REQUESTED
+  -> sandbox provider ACCEPTED
+  -> SETTLEMENT_PENDING
+  -> sandbox provider SETTLED + synthetic provider receipt
+  -> RiverOS EFFECT_OBSERVED
+  -> RECONCILED
+  -> FINAL
+```
+
+The sandbox never connects to a bank or payment network, never holds funds, and never interprets provider access as Warden authority. See `SILK-SANDBOX-PROVIDER-001`.
+
+## 13. Supersession
 
 This document is additive and provisional. Later editions MUST identify:
 
