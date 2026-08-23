@@ -58,7 +58,7 @@ Account class describes the principal participation container. It does not grant
 
 R0.1 recognises these instruction classes as a shared grammar:
 
-### Monetary and settlement coordination
+### Monetary settlement-execution instructions
 
 - `PAYMENT`
 - `COLLECTION`
@@ -66,7 +66,9 @@ R0.1 recognises these instruction classes as a shared grammar:
 - `REFUND`
 - `REMITTANCE`
 
-### Rights and participation
+These five classes represent instructions that may be sent to a regulated or sandbox provider for monetary execution. They MUST carry `value.kind = MONEY`, a decimal-string amount, and currency before execution.
+
+### Economic rights and participation instructions
 
 - `ENTITLEMENT_GRANT`
 - `ENTITLEMENT_TRANSFER`
@@ -76,6 +78,8 @@ R0.1 recognises these instruction classes as a shared grammar:
 - `ASSET_PARTICIPATION`
 - `CREATOR_PARTICIPATION`
 - `COMMONS_PARTICIPATION`
+
+These classes are not intrinsically cash movements. For example, a `REVENUE_SHARE` or `ROYALTY` may first represent a governed right, participation formula, entitlement, or obligation before any money is realised.
 
 ### Commercial obligations
 
@@ -91,9 +95,13 @@ R0.1 recognises these instruction classes as a shared grammar:
 - `INCENTIVE`
 - `BONUS`
 
-This list is extensible by later governed editions. New instruction types MUST declare scope, authority requirements, evidence requirements, and reconciliation semantics.
+Mission, incentive, bonus, participation, revenue-share, and royalty instructions MAY represent rights, credits, participation interests, services, assets, or other non-cash economic semantics when that is their actual state.
 
-Monetary instruction values MUST use decimal strings, not binary floating-point JSON numbers. Applicable currency/asset scale is governed by the selected provider or asset policy.
+When such an economic relationship becomes payable or collectable in money, the actual cash movement MUST be represented by a separate settlement-execution instruction such as `PAYMENT`, `COLLECTION`, `SETTLEMENT`, `REFUND`, or `REMITTANCE`. That execution instruction receives its own Warden authorization and provider/reconciliation chain. A right or formula therefore does not silently become permission to move money.
+
+This list is extensible by later governed editions. New instruction types MUST declare scope, authority requirements, evidence requirements, reconciliation semantics, and whether they are economic-semantic instructions or provider-executable settlement instructions.
+
+All monetary values, whenever present, MUST use decimal strings rather than binary floating-point JSON numbers. Applicable currency/asset scale is governed by the selected provider or asset policy.
 
 ## 6. Ordered federation route
 
@@ -152,6 +160,8 @@ Exception and terminal states include:
 - `RECONCILIATION_REQUIRED`
 - `COMPENSATION_REQUIRED`
 
+Post-execution exception states such as `PARTIALLY_SETTLED`, `REVERSED`, and `DISPUTED` MUST preserve the Warden decision, execution route, River evidence, and exception reference. They cannot be used as lineage-free escape states after money or another external effect has moved.
+
 Every transition MUST be attributable to an actor/system, timestamped, and linked to evidence or a decision reference where applicable.
 
 ## 8. Provider binding rule
@@ -207,6 +217,7 @@ R0.1 implementations MUST preserve these invariants:
 9. Learned/derived projections MUST NOT replace Genesis, Warden, or RiverOS canonical state.
 10. A claimed observed/reconciled/final effect MUST carry at least one RiverOS evidence reference.
 11. Federated journeys MUST preserve ordered per-hop account, authority, custody, evidence, and commercial context rather than collapsing intermediate hops.
+12. An economic right, formula, entitlement, incentive, royalty, or participation relationship MUST NOT itself be treated as authorization for monetary provider execution; cash realization requires a separate governed settlement-execution instruction.
 
 ## 11. R0.1 implementation scope
 
