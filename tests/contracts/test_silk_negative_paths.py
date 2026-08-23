@@ -2,10 +2,13 @@ import json
 import unittest
 from pathlib import Path
 
+from jsonschema import Draft202012Validator, FormatChecker
+
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_DIR = ROOT / "tests" / "fixtures" / "silk"
 EVENT_SCHEMA_PATH = ROOT / "contracts" / "silk" / "silk-event.schema.json"
+INSTRUCTION_SCHEMA_PATH = ROOT / "contracts" / "silk" / "silk-instruction.schema.json"
 
 
 class SilkNegativePathTests(unittest.TestCase):
@@ -23,6 +26,26 @@ class SilkNegativePathTests(unittest.TestCase):
             (FIXTURE_DIR / "duplicate-event-delivery.json").read_text(encoding="utf-8")
         )
         cls.event_schema = json.loads(EVENT_SCHEMA_PATH.read_text(encoding="utf-8"))
+        cls.instruction_schema = json.loads(
+            INSTRUCTION_SCHEMA_PATH.read_text(encoding="utf-8")
+        )
+
+        Draft202012Validator.check_schema(cls.event_schema)
+        Draft202012Validator.check_schema(cls.instruction_schema)
+        checker = FormatChecker()
+        cls.event_validator = Draft202012Validator(
+            cls.event_schema, format_checker=checker
+        )
+        cls.instruction_validator = Draft202012Validator(
+            cls.instruction_schema, format_checker=checker
+        )
+
+    def test_negative_fixtures_validate_against_contract_schemas(self):
+        for fixture in (self.denied, self.failure):
+            self.instruction_validator.validate(fixture["instruction"])
+            for event in fixture["events"]:
+                self.event_validator.validate(event)
+        self.event_validator.validate(self.duplicate["event"])
 
     def test_authority_denied_attempt_never_routes_or_executes(self):
         events = self.denied["events"]
@@ -61,6 +84,9 @@ class SilkNegativePathTests(unittest.TestCase):
         self.assertEqual(failed["warden_decision_ref"], decision_ref)
         self.assertEqual(failed["execution_route_ref"], route_ref)
         self.assertTrue(failed["exception_ref"])
+        self.assertEqual(
+            self.failure["instruction"]["exception_ref"], failed["exception_ref"]
+        )
 
     def test_partial_effect_requires_reconciliation_before_compensation(self):
         events = self.failure["events"]
@@ -142,19 +168,6 @@ class SilkNegativePathTests(unittest.TestCase):
         }
         used.add(self.duplicate["event"]["event_type"])
         self.assertTrue(used.issubset(declared))
-
-    def test_schema_contains_negative_path_guard_requirements(self):
-        serialized = json.dumps(self.event_schema, sort_keys=True)
-        for required_token in (
-            "AUTHORITY_DENIED",
-            "EXECUTION_FAILED",
-            "RECONCILIATION_REQUIRED",
-            "COMPENSATION_REQUIRED",
-            "exception_ref",
-            "warden_decision_ref",
-            "river_evidence_refs",
-        ):
-            self.assertIn(required_token, serialized)
 
 
 if __name__ == "__main__":
