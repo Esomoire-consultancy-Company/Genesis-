@@ -30,16 +30,16 @@ The following boundaries are normative for R0.1:
 Genesis
   -> DigitalMe / recognised principal
   -> SILK Account
+  -> SILK Instruction (DRAFT / RESOLVED)
   -> Warden authority decision
-  -> SILK Instruction
   -> Synnergyze route/orchestration
-  -> External provider execution
+  -> External provider execution, when applicable
   -> RiverOS evidence/effect
   -> Reconciliation
   -> VSR + EmpireOS projections
 ```
 
-No stage may silently assume the authority of another stage.
+The SILK Instruction exists before Warden decides it. Warden authorises or denies the resolved instruction; Warden does not create the instruction. No stage may silently assume the authority of another stage.
 
 ## 4. SILK Account classes
 
@@ -95,9 +95,11 @@ R0.1 recognises these instruction classes as a shared grammar:
 
 This list is extensible by later governed editions. New instruction types MUST declare scope, authority requirements, evidence requirements, and reconciliation semantics.
 
+Monetary instruction values MUST use decimal strings, not binary floating-point JSON numbers. Applicable currency/asset scale is governed by the selected provider or asset policy.
+
 ## 6. Instruction lifecycle
 
-The canonical happy-path state machine is:
+The canonical monetary happy-path state machine is:
 
 ```text
 DRAFT
@@ -113,6 +115,8 @@ DRAFT
   -> RECONCILED
   -> FINAL
 ```
+
+Non-monetary rights/effect paths MAY skip provider and settlement-only states when no external regulated provider or monetary settlement exists, as defined by `SILK-EVENT-GRAMMAR-001`.
 
 Exception and terminal states include:
 
@@ -142,6 +146,14 @@ Provider bindings may identify capabilities such as:
 
 A provider credential proves provider-side access only. It does not substitute for Warden authority.
 
+Provider validity rules are fail-closed:
+
+- an `EXPIRED` binding MUST carry a non-null `valid_until`;
+- when both are present, `valid_until` MUST be greater than or equal to `valid_from`;
+- an `ACTIVE` or `PROVISIONAL` binding MUST NOT remain operational after `valid_until`;
+- cross-field ordering and as-of-time freshness are semantic checks because JSON Schema cannot compare sibling timestamp values or evaluate wall-clock freshness by itself;
+- contract CI MUST run JSON Schema Draft 2020-12 validation with `date-time` format checking enabled.
+
 ## 8. Atomic SILK meaning
 
 Every SILK movement must be explainable using the following fields:
@@ -170,15 +182,20 @@ R0.1 implementations MUST preserve these invariants:
 7. Every externally executed instruction MUST be reconcilable against provider result and RiverOS evidence.
 8. Sensitive provider secrets MUST NOT be committed to this repository.
 9. Learned/derived projections MUST NOT replace Genesis, Warden, or RiverOS canonical state.
+10. A claimed observed/reconciled/final effect MUST carry at least one RiverOS evidence reference.
 
 ## 10. R0.1 implementation scope
 
-This edition intentionally includes only:
+This edition includes only contract and synthetic-proof surfaces:
 
-- the rail boundary;
+- rail authority/custody boundary;
 - SILK account schema;
 - provider binding schema;
-- SILK instruction envelope schema.
+- SILK instruction envelope schema;
+- SILK event envelope and event grammar;
+- non-monetary entitlement happy-path fixture;
+- authority-denied, execution-failure/compensation, and duplicate-delivery fixtures;
+- contract tests, adversarial schema tests, and read-only CI verification.
 
 It intentionally excludes:
 
@@ -192,23 +209,25 @@ It intentionally excludes:
 
 Those capabilities require separate later editions, tests, provider contracts, and authority review.
 
-## 11. First reference proof for the next edition
+## 11. Reference proofs
 
-The first executable proof SHOULD be synthetic and non-custodial:
+The implemented first proof is synthetic and non-custodial:
 
 ```text
-DigitalMe A
-  -> creates a PAYMENT obligation to Business B
-  -> Warden authorises the specific instruction
-  -> Synnergyze selects a sandbox/mock provider
-  -> provider result is observed
-  -> RiverOS binds evidence and effect
-  -> reconciliation closes the obligation
-  -> VSR projects participation
-  -> EmpireOS projects the cost/liability effect
+DigitalMe creator
+  -> creates ENTITLEMENT_GRANT instruction
+  -> Genesis resolves the instruction context
+  -> Warden authorises the exact instruction
+  -> Synnergyze selects a registry-entitlement route
+  -> execution is requested
+  -> RiverOS observes the entitlement effect
+  -> reconciliation confirms the intended right
+  -> SILK finalises the instruction
 ```
 
-No production money movement is required to validate the R0.1 architecture.
+Negative proofs cover Warden denial, duplicate delivery, execution failure, reconciliation requirement, and compensation requirement without creating new authority.
+
+The next provider-bound proof MUST remain sandbox-only and credential-free until a separate provider-adapter contract and authority review are complete.
 
 ## 12. Supersession
 
