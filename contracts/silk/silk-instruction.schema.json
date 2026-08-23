@@ -73,13 +73,16 @@
     "value": {
       "type": "object",
       "additionalProperties": false,
+      "required": ["kind"],
       "properties": {
         "kind": {
           "type": "string",
           "enum": ["MONEY", "ASSET", "RIGHT", "SERVICE", "CREDIT", "PARTICIPATION"]
         },
         "amount": {
-          "type": "number"
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]{1,18})?$",
+          "description": "Non-negative decimal value encoded as a string. Binary floating-point values are not permitted; applicable currency scale is governed by the selected provider/asset policy."
         },
         "currency": {
           "type": "string",
@@ -93,7 +96,18 @@
           "type": "string",
           "minLength": 1
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"kind": {"const": "MONEY"}},
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["amount", "currency"]
+          }
+        }
+      ]
     },
     "authority_requirement_ref": {
       "type": "string",
@@ -119,7 +133,7 @@
       "type": "array",
       "items": {"type": "string", "minLength": 1},
       "uniqueItems": true,
-      "default": []
+      "minItems": 1
     },
     "state": {
       "type": "string",
@@ -163,6 +177,27 @@
     }
   },
   "allOf": [
+    {
+      "if": {
+        "properties": {
+          "instruction_type": {
+            "enum": ["PAYMENT", "COLLECTION", "SETTLEMENT", "REFUND", "REMITTANCE"]
+          }
+        },
+        "required": ["instruction_type"]
+      },
+      "then": {
+        "required": ["value"],
+        "properties": {
+          "value": {
+            "required": ["kind", "amount", "currency"],
+            "properties": {
+              "kind": {"const": "MONEY"}
+            }
+          }
+        }
+      }
+    },
     {
       "if": {
         "properties": {
