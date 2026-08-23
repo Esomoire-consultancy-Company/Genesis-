@@ -65,6 +65,12 @@
     "provider_binding_ref": {"type": "string", "minLength": 1},
     "evidence_policy_ref": {"type": "string", "minLength": 1},
     "exception_ref": {"type": "string", "minLength": 1},
+    "federation_route": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/federationHop"},
+      "description": "Ordered multi-ARC journey. hop_index ordering and from/to continuity are semantic invariants verified by contract tests."
+    },
     "river_evidence_refs": {
       "type": "array",
       "items": {"type": "string", "minLength": 1},
@@ -85,6 +91,36 @@
     "created_at": {"type": "string", "format": "date-time"},
     "updated_at": {"type": "string", "format": "date-time"},
     "version": {"const": "R0.1"}
+  },
+  "$defs": {
+    "refArray": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "minItems": 1
+    },
+    "federationHop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hop_index",
+        "arc_ref",
+        "from_silk_account_ref",
+        "to_silk_account_ref",
+        "warden_decision_ref"
+      ],
+      "properties": {
+        "hop_index": {"type": "integer", "minimum": 0},
+        "arc_ref": {"type": "string", "minLength": 1},
+        "from_silk_account_ref": {"type": "string", "minLength": 1},
+        "to_silk_account_ref": {"type": "string", "minLength": 1},
+        "warden_decision_ref": {"type": "string", "minLength": 1},
+        "custody_state_from": {"type": "string", "minLength": 1},
+        "custody_state_to": {"type": "string", "minLength": 1},
+        "commercial_obligation_refs": {"$ref": "#/$defs/refArray"},
+        "evidence_refs": {"$ref": "#/$defs/refArray"}
+      }
+    }
   },
   "allOf": [
     {
