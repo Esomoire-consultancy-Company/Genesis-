@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:vsr:silk:schema:event:r0.1",
+  "title": "SILK Event R0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "event_type",
+    "instruction_ref",
+    "principal_ref",
+    "silk_account_ref",
+    "correlation_id",
+    "occurred_at",
+    "actor",
+    "transition",
+    "version"
+  ],
+  "properties": {
+    "event_id": {"type": "string", "minLength": 1},
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "INSTRUCTION_CREATED",
+        "INSTRUCTION_RESOLVED",
+        "AUTHORITY_REQUESTED",
+        "AUTHORITY_GRANTED",
+        "AUTHORITY_DENIED",
+        "ROUTE_SELECTED",
+        "EXECUTION_REQUESTED",
+        "EXECUTION_ACCEPTED",
+        "EXECUTION_FAILED",
+        "PROVIDER_ACCEPTED",
+        "SETTLEMENT_PENDING",
+        "SETTLED",
+        "EFFECT_OBSERVED",
+        "RECONCILIATION_REQUIRED",
+        "RECONCILED",
+        "COMPENSATION_REQUIRED",
+        "DISPUTED",
+        "REVERSED",
+        "FINALIZED"
+      ]
+    },
+    "instruction_ref": {"type": "string", "minLength": 1},
+    "principal_ref": {"type": "string", "minLength": 1},
+    "silk_account_ref": {"type": "string", "minLength": 1},
+    "correlation_id": {"type": "string", "minLength": 1},
+    "causation_id": {"type": "string", "minLength": 1},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actor_class", "actor_ref"],
+      "properties": {
+        "actor_class": {
+          "type": "string",
+          "enum": ["PRINCIPAL", "GENESIS", "WARDEN", "SILK", "SYNNERGYZE", "PROVIDER", "RIVEROS", "SYSTEM"]
+        },
+        "actor_ref": {"type": "string", "minLength": 1}
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from_state", "to_state"],
+      "properties": {
+        "from_state": {"$ref": "#/$defs/state"},
+        "to_state": {"$ref": "#/$defs/state"}
+      }
+    },
+    "warden_decision_ref": {"type": "string", "minLength": 1},
+    "execution_route_ref": {"type": "string", "minLength": 1},
+    "provider_result_ref": {"type": "string", "minLength": 1},
+    "river_evidence_refs": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "default": []
+    },
+    "payload": {"type": "object"},
+    "version": {"const": "R0.1"}
+  },
+  "$defs": {
+    "state": {
+      "type": "string",
+      "enum": [
+        "DRAFT",
+        "RESOLVED",
+        "AWAITING_AUTHORITY",
+        "WARDEN_AUTHORIZED",
+        "ROUTE_SELECTED",
+        "EXECUTION_REQUESTED",
+        "PROVIDER_ACCEPTED",
+        "SETTLEMENT_PENDING",
+        "SETTLED",
+        "RIVER_OBSERVED",
+        "RECONCILED",
+        "FINAL",
+        "DENIED",
+        "EXPIRED",
+        "FAILED",
+        "REVERSED",
+        "DISPUTED",
+        "PARTIALLY_SETTLED",
+        "RECONCILIATION_REQUIRED",
+        "COMPENSATION_REQUIRED"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"event_type": {"const": "AUTHORITY_GRANTED"}}, "required": ["event_type"]},
+      "then": {"required": ["warden_decision_ref"]}
+    },
+    {
+      "if": {"properties": {"event_type": {"enum": ["ROUTE_SELECTED", "EXECUTION_REQUESTED", "EXECUTION_ACCEPTED"]}}, "required": ["event_type"]},
+      "then": {"required": ["warden_decision_ref", "execution_route_ref"]}
+    },
+    {
+      "if": {"properties": {"event_type": {"const": "PROVIDER_ACCEPTED"}}, "required": ["event_type"]},
+      "then": {"required": ["warden_decision_ref", "execution_route_ref", "provider_result_ref"]}
+    },
+    {
+      "if": {"properties": {"event_type": {"enum": ["EFFECT_OBSERVED", "RECONCILED", "FINALIZED"]}}, "required": ["event_type"]},
+      "then": {"required": ["warden_decision_ref", "river_evidence_refs"]}
+    }
+  ]
+}
