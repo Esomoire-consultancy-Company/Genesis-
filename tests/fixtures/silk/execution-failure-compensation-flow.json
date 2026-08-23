@@ -17,6 +17,7 @@
     "warden_decision_ref": "warden:decision:test:grant-failure-001",
     "execution_route_ref": "synnergyze:route:test:registry-entitlement",
     "evidence_policy_ref": "river:policy:test:partial-effect",
+    "exception_ref": "warden:exception:test:failure-001",
     "river_evidence_refs": ["river:receipt:test:partial-effect-001"],
     "state": "COMPENSATION_REQUIRED",
     "idempotency_key": "test-failure-001-v1",
