@@ -150,6 +150,7 @@
               "WARDEN_AUTHORIZED", "ROUTE_SELECTED", "EXECUTION_REQUESTED",
               "PROVIDER_ACCEPTED", "SETTLEMENT_PENDING", "SETTLED",
               "RIVER_OBSERVED", "RECONCILED", "FINAL", "DENIED", "FAILED",
+              "PARTIALLY_SETTLED", "REVERSED", "DISPUTED",
               "RECONCILIATION_REQUIRED", "COMPENSATION_REQUIRED"
             ]
           }
@@ -165,6 +166,7 @@
             "enum": [
               "EXECUTION_REQUESTED", "PROVIDER_ACCEPTED", "SETTLEMENT_PENDING",
               "SETTLED", "RIVER_OBSERVED", "RECONCILED", "FINAL", "FAILED",
+              "PARTIALLY_SETTLED", "REVERSED", "DISPUTED",
               "RECONCILIATION_REQUIRED", "COMPENSATION_REQUIRED"
             ]
           }
@@ -178,8 +180,9 @@
         "properties": {
           "state": {
             "enum": [
-              "RIVER_OBSERVED", "RECONCILED", "FINAL",
-              "RECONCILIATION_REQUIRED", "COMPENSATION_REQUIRED"
+              "RIVER_OBSERVED", "RECONCILED", "FINAL", "PARTIALLY_SETTLED",
+              "REVERSED", "DISPUTED", "RECONCILIATION_REQUIRED",
+              "COMPENSATION_REQUIRED"
             ]
           }
         },
@@ -191,7 +194,10 @@
       "if": {
         "properties": {
           "state": {
-            "enum": ["FAILED", "RECONCILIATION_REQUIRED", "COMPENSATION_REQUIRED"]
+            "enum": [
+              "FAILED", "PARTIALLY_SETTLED", "REVERSED", "DISPUTED",
+              "RECONCILIATION_REQUIRED", "COMPENSATION_REQUIRED"
+            ]
           }
         },
         "required": ["state"]
