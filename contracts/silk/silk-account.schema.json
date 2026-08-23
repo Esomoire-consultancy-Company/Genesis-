@@ -25,15 +25,12 @@
     "account_class": {
       "type": "string",
       "enum": [
-        "PERSONAL",
-        "CREATOR",
-        "BUSINESS",
-        "LOCATION",
-        "PROGRAMME",
-        "ARC",
-        "INSTITUTION",
-        "COMMONS"
-      ]
+        "INDIVIDUAL_STUDENT",
+        "FAMILY",
+        "ENTERPRISE",
+        "INSTITUTIONAL"
+      ],
+      "description": "Canonical SILK account class. Creator, programme, location, ARC and commons participation are represented by governed roles, licences, relationships and references rather than additional account classes."
     },
     "status": {
       "type": "string",
@@ -42,6 +39,7 @@
     "provider_binding_refs": {"$ref": "#/$defs/refArray"},
     "programme_refs": {"$ref": "#/$defs/refArray"},
     "arc_refs": {"$ref": "#/$defs/refArray"},
+    "role_licence_refs": {"$ref": "#/$defs/refArray"},
     "entitlement_refs": {"$ref": "#/$defs/refArray"},
     "obligation_refs": {"$ref": "#/$defs/refArray"},
     "settlement_route_refs": {"$ref": "#/$defs/refArray"},
