@@ -133,8 +133,15 @@
       }
     },
     {
-      "if": {"properties": {"event_type": {"const": "PROVIDER_ACCEPTED"}}, "required": ["event_type"]},
-      "then": {"required": ["warden_decision_ref", "execution_route_ref", "provider_result_ref"]}
+      "if": {
+        "properties": {
+          "event_type": {"enum": ["PROVIDER_ACCEPTED", "SETTLEMENT_PENDING", "SETTLED"]}
+        },
+        "required": ["event_type"]
+      },
+      "then": {
+        "required": ["warden_decision_ref", "execution_route_ref", "provider_result_ref"]
+      }
     },
     {
       "if": {"properties": {"event_type": {"const": "RECONCILIATION_REQUIRED"}}, "required": ["event_type"]},
