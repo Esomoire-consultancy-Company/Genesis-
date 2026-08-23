@@ -201,6 +201,29 @@ class AlphaRuntime:
             }
         )
 
+    @staticmethod
+    def _journey_ref(prefix: str, journey: JourneyRecord) -> str:
+        sequence = int(journey.journey_id.rsplit("-", 1)[1])
+        return f"{prefix}-{sequence:03d}"
+
+    @staticmethod
+    def _assert_decision_binding(
+        decision: WardenDecision,
+        *,
+        principal_ref: str,
+        silk_account_ref: str,
+        arc_ref: str,
+        capability_ref: str,
+    ) -> None:
+        if (
+            decision.decision != "ALLOW"
+            or decision.principal_ref != principal_ref
+            or decision.silk_account_ref != silk_account_ref
+            or decision.arc_ref != arc_ref
+            or decision.capability_ref != capability_ref
+        ):
+            raise AuthorityDenied("WARDEN_DECISION_CONTEXT_MISMATCH")
+
     def resolve_context(
         self,
         *,
@@ -294,8 +317,14 @@ class AlphaRuntime:
                 raise IdempotencyConflict("IDEMPOTENCY_CONFLICT")
             return self._journeys[journey_id]
 
-        if source_decision.decision != "ALLOW":
-            raise AuthorityDenied("SOURCE_WARDEN_DENIED")
+        source_arc_ref = self.programme_instances[programme_instance_ref]["arc_ref"]
+        self._assert_decision_binding(
+            source_decision,
+            principal_ref=principal_ref,
+            silk_account_ref=silk_account_ref,
+            arc_ref=source_arc_ref,
+            capability_ref=capability_ref,
+        )
 
         self._journey_counter += 1
         journey = JourneyRecord(
@@ -340,7 +369,7 @@ class AlphaRuntime:
             journey,
             "silk.route.proposed",
             actor_ref="VSR",
-            object_ref="RM-A-001",
+            object_ref=self._journey_ref("RM-A", journey),
         )
         return "QARC-E-PROVIDER-001", "SPP-ROUTE-001"
 
@@ -352,11 +381,23 @@ class AlphaRuntime:
         destination_decision: WardenDecision,
         product_ref: str,
     ) -> RouteManifest:
-        if source_decision.decision != "ALLOW" or destination_decision.decision != "ALLOW":
-            raise AuthorityDenied("ROUTE_NOT_AUTHORIZED")
+        self._assert_decision_binding(
+            source_decision,
+            principal_ref=journey.principal_ref,
+            silk_account_ref=journey.silk_account_ref,
+            arc_ref="QARC-E-FACTORY-001",
+            capability_ref=journey.capability_ref,
+        )
+        self._assert_decision_binding(
+            destination_decision,
+            principal_ref="DM-PROVIDER-001",
+            silk_account_ref="SA-E-PROVIDER-001",
+            arc_ref="QARC-E-PROVIDER-001",
+            capability_ref=journey.capability_ref,
+        )
 
         route = RouteManifest(
-            route_manifest_id="RM-A-001",
+            route_manifest_id=self._journey_ref("RM-A", journey),
             journey_id=journey.journey_id,
             route_version=1,
             product_ref=product_ref,
@@ -397,7 +438,7 @@ class AlphaRuntime:
             journey,
             "bnr.capacity.reserved",
             actor_ref="BNR",
-            object_ref="BNR-RES-A-001",
+            object_ref=self._journey_ref("BNR-RES-A", journey),
         )
         return required
 
@@ -408,7 +449,7 @@ class AlphaRuntime:
             journey,
             "bnr.capacity.released",
             actor_ref="BNR",
-            object_ref="BNR-RES-A-001",
+            object_ref=self._journey_ref("BNR-RES-A", journey),
         )
 
     def execute_fixture_a(self, request: dict[str, Any]) -> dict[str, Any]:
@@ -500,12 +541,12 @@ class AlphaRuntime:
                 journey,
                 "synnergyze.execution.started",
                 actor_ref="SYNNERGYZE",
-                object_ref="EP-A-001",
+                object_ref=self._journey_ref("EP-A", journey),
             )
 
             payload = journey.request_payload
             route_result = {
-                "route_result_id": "ROUTE-RESULT-A-001",
+                "route_result_id": self._journey_ref("ROUTE-RESULT-A", journey),
                 "route": [
                     payload.get("origin", "LOCATION-A"),
                     "NODE-01",
@@ -524,7 +565,7 @@ class AlphaRuntime:
             journey.statuses["execution"] = "COMPLETED"
 
             genesis_transition = {
-                "transition_id": "GT-A-001",
+                "transition_id": self._journey_ref("GT-A", journey),
                 "object_ref": "ROUTE-REQUEST-A-001",
                 "from_state": "REQUESTED",
                 "to_state": "PROCESSED",
@@ -538,7 +579,7 @@ class AlphaRuntime:
             )
 
             evidence = {
-                "evidence_id": "EV-A-001",
+                "evidence_id": self._journey_ref("EV-A", journey),
                 "evidence_type": "OBSERVED",
                 "fact_class": "FACT",
                 "content_ref": route_result["route_result_id"],
@@ -551,7 +592,7 @@ class AlphaRuntime:
             )
 
             effect_receipt = {
-                "receipt_id": "RR-A-001",
+                "receipt_id": self._journey_ref("RR-A", journey),
                 "evidence_status": "SUFFICIENT",
                 "effect_status": "CONFORMING",
                 "evidence_refs": [
@@ -580,10 +621,10 @@ class AlphaRuntime:
                 journey,
                 "settlement.requested",
                 actor_ref="SILK",
-                object_ref="SET-A-001",
+                object_ref=self._journey_ref("SET-A", journey),
             )
             journey.settlement = {
-                "settlement_id": "SET-A-001",
+                "settlement_id": self._journey_ref("SET-A", journey),
                 "commercial_event_ref": commercial_event["commercial_event_id"],
                 "status": "CONFIRMED",
             }
@@ -598,7 +639,7 @@ class AlphaRuntime:
             self._release_capacity(journey, reserved)
 
         journey.empire_projection = {
-            "projection_id": "EMP-A-001",
+            "projection_id": self._journey_ref("EMP-A", journey),
             "journey_id": journey.journey_id,
             "principal_ref": journey.principal_ref,
             "programme_ref": journey.programme_ref,
@@ -634,7 +675,7 @@ class AlphaRuntime:
             journey,
             "reconciliation.started",
             actor_ref="RECONCILIATION",
-            object_ref="REC-A-001",
+            object_ref=self._journey_ref("REC-A", journey),
         )
         if not all(checks.values()):
             raise AlphaRuntimeError("RECONCILIATION_FAILED")
@@ -642,7 +683,7 @@ class AlphaRuntime:
         journey.statuses["reconciliation"] = "RECONCILED"
         journey.statuses["lifecycle"] = "COMPLETE"
         journey.reconciliation = {
-            "reconciliation_id": "REC-A-001",
+            "reconciliation_id": self._journey_ref("REC-A", journey),
             "status": "RECONCILED",
             "checks": checks,
             "unresolved_items": [],
@@ -667,7 +708,7 @@ class AlphaRuntime:
             return deepcopy(existing)
 
         event = {
-            "commercial_event_id": "CE-A-001",
+            "commercial_event_id": self._journey_ref("CE-A", journey),
             "journey_id": journey.journey_id,
             "trigger_receipt_ref": trigger_receipt_ref,
             "gross_value": 100,
