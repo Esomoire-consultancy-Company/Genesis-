@@ -77,7 +77,7 @@
       "type": "array",
       "items": {"type": "string", "minLength": 1},
       "uniqueItems": true,
-      "default": []
+      "minItems": 1
     },
     "payload": {"type": "object"},
     "version": {"const": "R0.1"}
@@ -118,11 +118,7 @@
       "if": {"properties": {"event_type": {"const": "AUTHORITY_DENIED"}}, "required": ["event_type"]},
       "then": {
         "required": ["warden_decision_ref"],
-        "properties": {
-          "transition": {
-            "properties": {"to_state": {"const": "DENIED"}}
-          }
-        }
+        "properties": {"transition": {"properties": {"to_state": {"const": "DENIED"}}}}
       }
     },
     {
@@ -133,11 +129,7 @@
       "if": {"properties": {"event_type": {"const": "EXECUTION_FAILED"}}, "required": ["event_type"]},
       "then": {
         "required": ["warden_decision_ref", "execution_route_ref", "exception_ref"],
-        "properties": {
-          "transition": {
-            "properties": {"to_state": {"const": "FAILED"}}
-          }
-        }
+        "properties": {"transition": {"properties": {"to_state": {"const": "FAILED"}}}}
       }
     },
     {
@@ -147,23 +139,15 @@
     {
       "if": {"properties": {"event_type": {"const": "RECONCILIATION_REQUIRED"}}, "required": ["event_type"]},
       "then": {
-        "required": ["warden_decision_ref", "exception_ref"],
-        "properties": {
-          "transition": {
-            "properties": {"to_state": {"const": "RECONCILIATION_REQUIRED"}}
-          }
-        }
+        "required": ["warden_decision_ref", "exception_ref", "river_evidence_refs"],
+        "properties": {"transition": {"properties": {"to_state": {"const": "RECONCILIATION_REQUIRED"}}}}
       }
     },
     {
       "if": {"properties": {"event_type": {"const": "COMPENSATION_REQUIRED"}}, "required": ["event_type"]},
       "then": {
         "required": ["warden_decision_ref", "exception_ref", "river_evidence_refs"],
-        "properties": {
-          "transition": {
-            "properties": {"to_state": {"const": "COMPENSATION_REQUIRED"}}
-          }
-        }
+        "properties": {"transition": {"properties": {"to_state": {"const": "COMPENSATION_REQUIRED"}}}}
       }
     },
     {
