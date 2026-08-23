@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:vsr:silk:schema:economic-fact:r0.3",
+  "title": "SILK Economic Fact R0.3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "economic_fact_id",
+    "instruction_ref",
+    "principal_ref",
+    "silk_account_ref",
+    "instruction_type",
+    "value",
+    "final_event_ref",
+    "provider_result_ref",
+    "river_evidence_refs",
+    "finalized_at",
+    "source_fingerprint",
+    "version"
+  ],
+  "properties": {
+    "economic_fact_id": {"type": "string", "minLength": 1},
+    "instruction_ref": {"type": "string", "minLength": 1},
+    "principal_ref": {"type": "string", "minLength": 1},
+    "silk_account_ref": {"type": "string", "minLength": 1},
+    "counterparty_ref": {"type": "string", "minLength": 1},
+    "programme_ref": {"type": "string", "minLength": 1},
+    "right_or_obligation_ref": {"type": "string", "minLength": 1},
+    "instruction_type": {
+      "type": "string",
+      "enum": ["PAYMENT"]
+    },
+    "value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["amount", "currency"],
+      "properties": {
+        "amount": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]{1,18})?$"
+        },
+        "currency": {"type": "string", "pattern": "^[A-Z]{3}$"}
+      }
+    },
+    "federation_route": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "hop_index",
+          "arc_ref",
+          "from_silk_account_ref",
+          "to_silk_account_ref",
+          "warden_decision_ref"
+        ],
+        "properties": {
+          "hop_index": {"type": "integer", "minimum": 0},
+          "arc_ref": {"type": "string", "minLength": 1},
+          "from_silk_account_ref": {"type": "string", "minLength": 1},
+          "to_silk_account_ref": {"type": "string", "minLength": 1},
+          "warden_decision_ref": {"type": "string", "minLength": 1},
+          "custody_state_from": {"type": "string", "minLength": 1},
+          "custody_state_to": {"type": "string", "minLength": 1},
+          "commercial_obligation_refs": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"type": "string", "minLength": 1}
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "final_event_ref": {"type": "string", "minLength": 1},
+    "provider_result_ref": {"type": "string", "minLength": 1},
+    "river_evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "finalized_at": {"type": "string", "format": "date-time"},
+    "source_fingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "version": {"const": "R0.3"}
+  }
+}
