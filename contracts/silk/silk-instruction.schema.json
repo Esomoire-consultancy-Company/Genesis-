@@ -16,60 +16,24 @@
     "version"
   ],
   "properties": {
-    "silk_instruction_id": {
-      "type": "string",
-      "minLength": 1
-    },
-    "principal_ref": {
-      "type": "string",
-      "minLength": 1
-    },
-    "silk_account_ref": {
-      "type": "string",
-      "minLength": 1
-    },
+    "silk_instruction_id": {"type": "string", "minLength": 1},
+    "principal_ref": {"type": "string", "minLength": 1},
+    "silk_account_ref": {"type": "string", "minLength": 1},
     "instruction_type": {
       "type": "string",
       "enum": [
-        "PAYMENT",
-        "COLLECTION",
-        "SETTLEMENT",
-        "REFUND",
-        "REMITTANCE",
-        "ENTITLEMENT_GRANT",
-        "ENTITLEMENT_TRANSFER",
-        "LICENCE_GRANT",
-        "REVENUE_SHARE",
-        "ROYALTY",
-        "PURCHASE_ORDER",
-        "INVOICE",
-        "RECEIVABLE",
-        "OBLIGATION",
-        "CARBON_CREDIT",
-        "MISSION_ALLOCATION",
-        "INCENTIVE",
-        "BONUS",
-        "ASSET_PARTICIPATION",
-        "CREATOR_PARTICIPATION",
+        "PAYMENT", "COLLECTION", "SETTLEMENT", "REFUND", "REMITTANCE",
+        "ENTITLEMENT_GRANT", "ENTITLEMENT_TRANSFER", "LICENCE_GRANT",
+        "REVENUE_SHARE", "ROYALTY", "PURCHASE_ORDER", "INVOICE",
+        "RECEIVABLE", "OBLIGATION", "CARBON_CREDIT", "MISSION_ALLOCATION",
+        "INCENTIVE", "BONUS", "ASSET_PARTICIPATION", "CREATOR_PARTICIPATION",
         "COMMONS_PARTICIPATION"
       ]
     },
-    "objective": {
-      "type": "string",
-      "minLength": 1
-    },
-    "counterparty_ref": {
-      "type": "string",
-      "minLength": 1
-    },
-    "programme_ref": {
-      "type": "string",
-      "minLength": 1
-    },
-    "right_or_obligation_ref": {
-      "type": "string",
-      "minLength": 1
-    },
+    "objective": {"type": "string", "minLength": 1},
+    "counterparty_ref": {"type": "string", "minLength": 1},
+    "programme_ref": {"type": "string", "minLength": 1},
+    "right_or_obligation_ref": {"type": "string", "minLength": 1},
     "value": {
       "type": "object",
       "additionalProperties": false,
@@ -84,51 +48,23 @@
           "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]{1,18})?$",
           "description": "Non-negative decimal value encoded as a string. Binary floating-point values are not permitted; applicable currency scale is governed by the selected provider/asset policy."
         },
-        "currency": {
-          "type": "string",
-          "pattern": "^[A-Z]{3}$"
-        },
-        "unit": {
-          "type": "string",
-          "minLength": 1
-        },
-        "asset_ref": {
-          "type": "string",
-          "minLength": 1
-        }
+        "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+        "unit": {"type": "string", "minLength": 1},
+        "asset_ref": {"type": "string", "minLength": 1}
       },
       "allOf": [
         {
-          "if": {
-            "properties": {"kind": {"const": "MONEY"}},
-            "required": ["kind"]
-          },
-          "then": {
-            "required": ["amount", "currency"]
-          }
+          "if": {"properties": {"kind": {"const": "MONEY"}}, "required": ["kind"]},
+          "then": {"required": ["amount", "currency"]}
         }
       ]
     },
-    "authority_requirement_ref": {
-      "type": "string",
-      "minLength": 1
-    },
-    "warden_decision_ref": {
-      "type": "string",
-      "minLength": 1
-    },
-    "execution_route_ref": {
-      "type": "string",
-      "minLength": 1
-    },
-    "provider_binding_ref": {
-      "type": "string",
-      "minLength": 1
-    },
-    "evidence_policy_ref": {
-      "type": "string",
-      "minLength": 1
-    },
+    "authority_requirement_ref": {"type": "string", "minLength": 1},
+    "warden_decision_ref": {"type": "string", "minLength": 1},
+    "execution_route_ref": {"type": "string", "minLength": 1},
+    "provider_binding_ref": {"type": "string", "minLength": 1},
+    "evidence_policy_ref": {"type": "string", "minLength": 1},
+    "exception_ref": {"type": "string", "minLength": 1},
     "river_evidence_refs": {
       "type": "array",
       "items": {"type": "string", "minLength": 1},
@@ -138,43 +74,17 @@
     "state": {
       "type": "string",
       "enum": [
-        "DRAFT",
-        "RESOLVED",
-        "AWAITING_AUTHORITY",
-        "WARDEN_AUTHORIZED",
-        "ROUTE_SELECTED",
-        "EXECUTION_REQUESTED",
-        "PROVIDER_ACCEPTED",
-        "SETTLEMENT_PENDING",
-        "SETTLED",
-        "RIVER_OBSERVED",
-        "RECONCILED",
-        "FINAL",
-        "DENIED",
-        "EXPIRED",
-        "FAILED",
-        "REVERSED",
-        "DISPUTED",
-        "PARTIALLY_SETTLED",
-        "RECONCILIATION_REQUIRED",
-        "COMPENSATION_REQUIRED"
+        "DRAFT", "RESOLVED", "AWAITING_AUTHORITY", "WARDEN_AUTHORIZED",
+        "ROUTE_SELECTED", "EXECUTION_REQUESTED", "PROVIDER_ACCEPTED",
+        "SETTLEMENT_PENDING", "SETTLED", "RIVER_OBSERVED", "RECONCILED",
+        "FINAL", "DENIED", "EXPIRED", "FAILED", "REVERSED", "DISPUTED",
+        "PARTIALLY_SETTLED", "RECONCILIATION_REQUIRED", "COMPENSATION_REQUIRED"
       ]
     },
-    "idempotency_key": {
-      "type": "string",
-      "minLength": 1
-    },
-    "created_at": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "updated_at": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "version": {
-      "const": "R0.1"
-    }
+    "idempotency_key": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "version": {"const": "R0.1"}
   },
   "allOf": [
     {
@@ -191,9 +101,7 @@
         "properties": {
           "value": {
             "required": ["kind", "amount", "currency"],
-            "properties": {
-              "kind": {"const": "MONEY"}
-            }
+            "properties": {"kind": {"const": "MONEY"}}
           }
         }
       }
@@ -203,57 +111,56 @@
         "properties": {
           "state": {
             "enum": [
-              "WARDEN_AUTHORIZED",
-              "ROUTE_SELECTED",
-              "EXECUTION_REQUESTED",
-              "PROVIDER_ACCEPTED",
-              "SETTLEMENT_PENDING",
-              "SETTLED",
-              "RIVER_OBSERVED",
-              "RECONCILED",
-              "FINAL"
+              "WARDEN_AUTHORIZED", "ROUTE_SELECTED", "EXECUTION_REQUESTED",
+              "PROVIDER_ACCEPTED", "SETTLEMENT_PENDING", "SETTLED",
+              "RIVER_OBSERVED", "RECONCILED", "FINAL", "DENIED", "FAILED",
+              "RECONCILIATION_REQUIRED", "COMPENSATION_REQUIRED"
             ]
           }
         },
         "required": ["state"]
       },
-      "then": {
-        "required": ["warden_decision_ref"]
-      }
+      "then": {"required": ["warden_decision_ref"]}
     },
     {
       "if": {
         "properties": {
           "state": {
             "enum": [
-              "EXECUTION_REQUESTED",
-              "PROVIDER_ACCEPTED",
-              "SETTLEMENT_PENDING",
-              "SETTLED",
-              "RIVER_OBSERVED",
-              "RECONCILED",
-              "FINAL"
+              "EXECUTION_REQUESTED", "PROVIDER_ACCEPTED", "SETTLEMENT_PENDING",
+              "SETTLED", "RIVER_OBSERVED", "RECONCILED", "FINAL", "FAILED",
+              "RECONCILIATION_REQUIRED", "COMPENSATION_REQUIRED"
             ]
           }
         },
         "required": ["state"]
       },
-      "then": {
-        "required": ["execution_route_ref"]
-      }
+      "then": {"required": ["execution_route_ref"]}
     },
     {
       "if": {
         "properties": {
           "state": {
-            "enum": ["RIVER_OBSERVED", "RECONCILED", "FINAL"]
+            "enum": [
+              "RIVER_OBSERVED", "RECONCILED", "FINAL",
+              "RECONCILIATION_REQUIRED", "COMPENSATION_REQUIRED"
+            ]
           }
         },
         "required": ["state"]
       },
-      "then": {
-        "required": ["river_evidence_refs"]
-      }
+      "then": {"required": ["river_evidence_refs"]}
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": ["FAILED", "RECONCILIATION_REQUIRED", "COMPENSATION_REQUIRED"]
+          }
+        },
+        "required": ["state"]
+      },
+      "then": {"required": ["exception_ref"]}
     }
   ]
 }
