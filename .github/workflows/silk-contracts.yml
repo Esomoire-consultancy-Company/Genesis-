@@ -1,0 +1,33 @@
+name: SILK contract verification
+
+on:
+  pull_request:
+    paths:
+      - "contracts/silk/**"
+      - "docs/architecture/SILK-*.md"
+      - "tests/contracts/**"
+      - "tests/fixtures/silk/**"
+      - ".github/workflows/silk-contracts.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  silk-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile contract tests
+        run: python -m compileall -q tests/contracts
+
+      - name: Run SILK contract tests
+        run: python -m unittest discover -s tests/contracts -p "test_*.py" -v
