@@ -1,12 +1,19 @@
 import json
 import unittest
+from datetime import datetime
 from pathlib import Path
+
+from jsonschema import Draft202012Validator, FormatChecker
 
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_PATH = ROOT / "tests" / "fixtures" / "silk" / "entitlement-grant-flow.json"
 EVENT_SCHEMA_PATH = ROOT / "contracts" / "silk" / "silk-event.schema.json"
 INSTRUCTION_SCHEMA_PATH = ROOT / "contracts" / "silk" / "silk-instruction.schema.json"
+
+
+def _parse_datetime(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
 class SilkEventContractTests(unittest.TestCase):
@@ -17,6 +24,21 @@ class SilkEventContractTests(unittest.TestCase):
         cls.instruction = cls.fixture["instruction"]
         cls.event_schema = json.loads(EVENT_SCHEMA_PATH.read_text(encoding="utf-8"))
         cls.instruction_schema = json.loads(INSTRUCTION_SCHEMA_PATH.read_text(encoding="utf-8"))
+
+        Draft202012Validator.check_schema(cls.event_schema)
+        Draft202012Validator.check_schema(cls.instruction_schema)
+        checker = FormatChecker()
+        cls.event_validator = Draft202012Validator(
+            cls.event_schema, format_checker=checker
+        )
+        cls.instruction_validator = Draft202012Validator(
+            cls.instruction_schema, format_checker=checker
+        )
+
+    def test_fixture_validates_against_contract_schemas(self):
+        self.instruction_validator.validate(self.instruction)
+        for event in self.events:
+            self.event_validator.validate(event)
 
     def test_fixture_is_non_monetary_entitlement_flow(self):
         self.assertEqual(self.instruction["instruction_type"], "ENTITLEMENT_GRANT")
@@ -38,6 +60,16 @@ class SilkEventContractTests(unittest.TestCase):
                 current["transition"]["from_state"],
                 previous["transition"]["to_state"],
             )
+
+    def test_event_times_are_monotonic_and_instruction_covers_final_event(self):
+        event_times = [_parse_datetime(event["occurred_at"]) for event in self.events]
+        self.assertEqual(event_times, sorted(event_times))
+        self.assertLessEqual(
+            _parse_datetime(self.instruction["created_at"]), event_times[0]
+        )
+        self.assertGreaterEqual(
+            _parse_datetime(self.instruction["updated_at"]), event_times[-1]
+        )
 
     def test_execution_occurs_only_after_warden_authority(self):
         types = [event["event_type"] for event in self.events]
