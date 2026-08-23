@@ -24,7 +24,9 @@ def _schema(name: str) -> dict:
 
 
 def _dt(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    return datetime.fromisoformat(value)
 
 
 def _final_event(instruction: dict, river_ref: str) -> dict:
