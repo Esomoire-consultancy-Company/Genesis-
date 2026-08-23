@@ -68,7 +68,8 @@
     },
     "valid_until": {
       "type": ["string", "null"],
-      "format": "date-time"
+      "format": "date-time",
+      "description": "End of provider-binding validity. Cross-field ordering and status freshness are semantic invariants verified by the contract test/runtime validator."
     },
     "status": {
       "type": "string",
@@ -85,5 +86,22 @@
     "version": {
       "const": "R0.1"
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"status": {"const": "EXPIRED"}},
+        "required": ["status"]
+      },
+      "then": {
+        "required": ["valid_until"],
+        "properties": {
+          "valid_until": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  ]
 }
