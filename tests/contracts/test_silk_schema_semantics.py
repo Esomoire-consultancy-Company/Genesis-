@@ -45,6 +45,8 @@ class SilkSchemaSemanticTests(unittest.TestCase):
         cls.provider_schema = _load_schema("silk-provider-binding.schema.json")
         cls.provider_result_schema = _load_schema("silk-provider-result.schema.json")
         cls.account_schema = _load_schema("silk-account.schema.json")
+        cls.economic_fact_schema = _load_schema("silk-economic-fact.schema.json")
+        cls.projection_schema = _load_schema("silk-projection.schema.json")
 
         checker = FormatChecker()
         cls.instruction_validator = Draft202012Validator(
@@ -62,6 +64,12 @@ class SilkSchemaSemanticTests(unittest.TestCase):
         cls.account_validator = Draft202012Validator(
             cls.account_schema, format_checker=checker
         )
+        cls.economic_fact_validator = Draft202012Validator(
+            cls.economic_fact_schema, format_checker=checker
+        )
+        cls.projection_validator = Draft202012Validator(
+            cls.projection_schema, format_checker=checker
+        )
 
     def test_all_schemas_are_valid_draft_2020_12(self):
         for schema in (
@@ -70,6 +78,8 @@ class SilkSchemaSemanticTests(unittest.TestCase):
             self.provider_schema,
             self.provider_result_schema,
             self.account_schema,
+            self.economic_fact_schema,
+            self.projection_schema,
         ):
             Draft202012Validator.check_schema(schema)
 
