@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:vsr:silk:schema:provider-binding:r0.1",
+  "title": "SILK Provider Binding R0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "provider_binding_id",
+    "principal_ref",
+    "provider_type",
+    "provider_ref",
+    "capabilities",
+    "status",
+    "created_at",
+    "version"
+  ],
+  "properties": {
+    "provider_binding_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "principal_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_type": {
+      "type": "string",
+      "enum": ["BANK", "PAYMENT", "TELECOM", "NETWORK", "COMMERCIAL", "OTHER"]
+    },
+    "provider_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Registry reference to the provider organisation."
+    },
+    "external_account_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Opaque provider-side identifier or token reference. Never a plaintext secret."
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "PAY",
+          "COLLECT",
+          "SETTLE",
+          "REFUND",
+          "REMIT",
+          "VERIFY_ACCOUNT",
+          "NETWORK_ACCESS",
+          "TELECOM_SUBSCRIPTION",
+          "IDENTIFIER_RESOLUTION",
+          "OTHER"
+        ]
+      }
+    },
+    "scope_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional contract, programme, jurisdiction, or capability scope reference."
+    },
+    "valid_from": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "valid_until": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["PROVISIONAL", "ACTIVE", "SUSPENDED", "REVOKED", "EXPIRED"]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "version": {
+      "const": "R0.1"
+    }
+  }
+}
