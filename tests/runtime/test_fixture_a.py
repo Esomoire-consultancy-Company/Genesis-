@@ -119,6 +119,55 @@ class AlphaFixtureATests(unittest.TestCase):
         with self.assertRaises(IdempotencyConflict):
             self.runtime.execute_fixture_a(conflicting)
 
+    def test_warden_allow_is_bound_to_principal_account_arc_and_capability(self):
+        wrong_decision = self.runtime.request_warden_decision(
+            principal_ref="DM-PROVIDER-001",
+            silk_account_ref="SA-E-PROVIDER-001",
+            arc_ref="QARC-E-PROVIDER-001",
+            capability_ref="CAP-ROUTE-OPTIMIZATION",
+        )
+
+        with self.assertRaises(AuthorityDenied) as raised:
+            self.runtime.create_journey(
+                request_id="REQ-WRONG-WARDEN",
+                idempotency_key="wrong-warden-binding",
+                principal_ref="DM-FACTORY-001",
+                silk_account_ref="SA-E-FACTORY-001",
+                programme_ref="VSR-ROUTE-SERVICE-001",
+                programme_instance_ref="PI-ROUTE-FACTORY-001",
+                capability_ref="CAP-ROUTE-OPTIMIZATION",
+                request_payload={"origin": "LOCATION-A", "destination": "LOCATION-B"},
+                source_decision=wrong_decision,
+            )
+
+        self.assertEqual(str(raised.exception), "WARDEN_DECISION_CONTEXT_MISMATCH")
+
+    def test_distinct_journeys_get_distinct_runtime_object_refs(self):
+        first = self.runtime.execute_fixture_a(dict(FIXTURE_A_REQUEST))
+        second_request = dict(FIXTURE_A_REQUEST)
+        second_request["request_id"] = "REQ-FIXTURE-A-SECOND"
+        second_request["idempotency_key"] = "fixture-a-request-002"
+        second_request["payload"] = dict(FIXTURE_A_REQUEST["payload"])
+        second_request["payload"]["destination"] = "LOCATION-C"
+
+        second = self.runtime.execute_fixture_a(second_request)
+
+        self.assertNotEqual(first["journey_id"], second["journey_id"])
+        self.assertNotEqual(
+            first["route"]["route_manifest_id"], second["route"]["route_manifest_id"]
+        )
+        self.assertNotEqual(
+            first["commercial_event"]["commercial_event_id"],
+            second["commercial_event"]["commercial_event_id"],
+        )
+        self.assertNotEqual(
+            first["settlement"]["settlement_id"], second["settlement"]["settlement_id"]
+        )
+        self.assertNotEqual(
+            first["empire_projection"]["projection_id"],
+            second["empire_projection"]["projection_id"],
+        )
+
     def test_individual_account_cannot_invoke_enterprise_only_capability(self):
         denied = dict(FIXTURE_A_REQUEST)
         denied["silk_account_ref"] = "SA-I-FACTORY-001"
