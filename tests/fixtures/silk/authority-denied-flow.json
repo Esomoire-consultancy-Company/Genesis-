@@ -1,0 +1,79 @@
+{
+  "instruction": {
+    "silk_instruction_id": "silk:instruction:test:denied-001",
+    "principal_ref": "digitalme:test:creator-a",
+    "silk_account_ref": "silk:account:test:creator-a",
+    "instruction_type": "ENTITLEMENT_GRANT",
+    "objective": "Attempt a synthetic entitlement grant that Warden denies",
+    "counterparty_ref": "programme:test:restricted",
+    "programme_ref": "programme:test:restricted",
+    "right_or_obligation_ref": "entitlement:test:restricted-member",
+    "value": {
+      "kind": "RIGHT",
+      "unit": "PROGRAMME_ENTITLEMENT",
+      "asset_ref": "entitlement:test:restricted-member"
+    },
+    "authority_requirement_ref": "warden:policy:test:restricted-entitlement",
+    "warden_decision_ref": "warden:decision:test:deny-001",
+    "state": "DENIED",
+    "idempotency_key": "test-denied-001-v1",
+    "created_at": "2026-08-23T04:30:00Z",
+    "updated_at": "2026-08-23T04:30:03Z",
+    "version": "R0.1"
+  },
+  "events": [
+    {
+      "event_id": "silk:event:test:deny:001",
+      "event_type": "INSTRUCTION_CREATED",
+      "instruction_ref": "silk:instruction:test:denied-001",
+      "principal_ref": "digitalme:test:creator-a",
+      "silk_account_ref": "silk:account:test:creator-a",
+      "correlation_id": "silk:correlation:test:denied-001",
+      "occurred_at": "2026-08-23T04:30:00Z",
+      "actor": {"actor_class": "PRINCIPAL", "actor_ref": "digitalme:test:creator-a"},
+      "transition": {"from_state": "DRAFT", "to_state": "DRAFT"},
+      "version": "R0.1"
+    },
+    {
+      "event_id": "silk:event:test:deny:002",
+      "event_type": "INSTRUCTION_RESOLVED",
+      "instruction_ref": "silk:instruction:test:denied-001",
+      "principal_ref": "digitalme:test:creator-a",
+      "silk_account_ref": "silk:account:test:creator-a",
+      "correlation_id": "silk:correlation:test:denied-001",
+      "causation_id": "silk:event:test:deny:001",
+      "occurred_at": "2026-08-23T04:30:01Z",
+      "actor": {"actor_class": "GENESIS", "actor_ref": "genesis:test:registry"},
+      "transition": {"from_state": "DRAFT", "to_state": "RESOLVED"},
+      "version": "R0.1"
+    },
+    {
+      "event_id": "silk:event:test:deny:003",
+      "event_type": "AUTHORITY_REQUESTED",
+      "instruction_ref": "silk:instruction:test:denied-001",
+      "principal_ref": "digitalme:test:creator-a",
+      "silk_account_ref": "silk:account:test:creator-a",
+      "correlation_id": "silk:correlation:test:denied-001",
+      "causation_id": "silk:event:test:deny:002",
+      "occurred_at": "2026-08-23T04:30:02Z",
+      "actor": {"actor_class": "SILK", "actor_ref": "silk:test:rail"},
+      "transition": {"from_state": "RESOLVED", "to_state": "AWAITING_AUTHORITY"},
+      "version": "R0.1"
+    },
+    {
+      "event_id": "silk:event:test:deny:004",
+      "event_type": "AUTHORITY_DENIED",
+      "instruction_ref": "silk:instruction:test:denied-001",
+      "principal_ref": "digitalme:test:creator-a",
+      "silk_account_ref": "silk:account:test:creator-a",
+      "correlation_id": "silk:correlation:test:denied-001",
+      "causation_id": "silk:event:test:deny:003",
+      "occurred_at": "2026-08-23T04:30:03Z",
+      "actor": {"actor_class": "WARDEN", "actor_ref": "warden:test:creator-a"},
+      "transition": {"from_state": "AWAITING_AUTHORITY", "to_state": "DENIED"},
+      "warden_decision_ref": "warden:decision:test:deny-001",
+      "payload": {"reason_code": "POLICY_SCOPE_DENIED"},
+      "version": "R0.1"
+    }
+  ]
+}

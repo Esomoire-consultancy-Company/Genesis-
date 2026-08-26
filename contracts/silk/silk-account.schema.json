@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:vsr:silk:schema:account:r0.1",
+  "title": "SILK Account R0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "silk_account_id",
+    "principal_ref",
+    "account_class",
+    "status",
+    "created_at",
+    "version"
+  ],
+  "properties": {
+    "silk_account_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "principal_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Canonical Genesis/DigitalMe or recognised principal reference."
+    },
+    "account_class": {
+      "type": "string",
+      "enum": [
+        "INDIVIDUAL_STUDENT",
+        "FAMILY",
+        "ENTERPRISE",
+        "INSTITUTIONAL"
+      ],
+      "description": "Canonical SILK account class. Creator, programme, location, ARC and commons participation are represented by governed roles, licences, relationships and references rather than additional account classes."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["PROVISIONAL", "ACTIVE", "SUSPENDED", "CLOSED"]
+    },
+    "provider_binding_refs": {"$ref": "#/$defs/refArray"},
+    "programme_refs": {"$ref": "#/$defs/refArray"},
+    "arc_refs": {"$ref": "#/$defs/refArray"},
+    "role_licence_refs": {"$ref": "#/$defs/refArray"},
+    "entitlement_refs": {"$ref": "#/$defs/refArray"},
+    "obligation_refs": {"$ref": "#/$defs/refArray"},
+    "settlement_route_refs": {"$ref": "#/$defs/refArray"},
+    "reconciliation_state": {
+      "type": "string",
+      "enum": ["CLEAR", "OPEN", "REQUIRED", "DISPUTED"],
+      "default": "CLEAR"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "version": {
+      "const": "R0.1"
+    }
+  },
+  "$defs": {
+    "refArray": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "default": []
+    }
+  }
+}

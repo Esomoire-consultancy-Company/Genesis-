@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:vsr:silk:schema:instruction:r0.1",
+  "title": "SILK Instruction R0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "silk_instruction_id",
+    "principal_ref",
+    "silk_account_ref",
+    "instruction_type",
+    "objective",
+    "state",
+    "idempotency_key",
+    "created_at",
+    "version"
+  ],
+  "properties": {
+    "silk_instruction_id": {"type": "string", "minLength": 1},
+    "principal_ref": {"type": "string", "minLength": 1},
+    "silk_account_ref": {"type": "string", "minLength": 1},
+    "instruction_type": {
+      "type": "string",
+      "enum": [
+        "PAYMENT", "COLLECTION", "SETTLEMENT", "REFUND", "REMITTANCE",
+        "ENTITLEMENT_GRANT", "ENTITLEMENT_TRANSFER", "LICENCE_GRANT",
+        "REVENUE_SHARE", "ROYALTY", "PURCHASE_ORDER", "INVOICE",
+        "RECEIVABLE", "OBLIGATION", "CARBON_CREDIT", "MISSION_ALLOCATION",
+        "INCENTIVE", "BONUS", "ASSET_PARTICIPATION", "CREATOR_PARTICIPATION",
+        "COMMONS_PARTICIPATION"
+      ]
+    },
+    "objective": {"type": "string", "minLength": 1},
+    "counterparty_ref": {"type": "string", "minLength": 1},
+    "programme_ref": {"type": "string", "minLength": 1},
+    "right_or_obligation_ref": {"type": "string", "minLength": 1},
+    "value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["MONEY", "ASSET", "RIGHT", "SERVICE", "CREDIT", "PARTICIPATION"]
+        },
+        "amount": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]{1,18})?$",
+          "description": "Non-negative decimal value encoded as a string. Binary floating-point values are not permitted; applicable currency scale is governed by the selected provider/asset policy."
+        },
+        "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+        "unit": {"type": "string", "minLength": 1},
+        "asset_ref": {"type": "string", "minLength": 1}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"kind": {"const": "MONEY"}}, "required": ["kind"]},
+          "then": {"required": ["amount", "currency"]}
+        }
+      ]
+    },
+    "authority_requirement_ref": {"type": "string", "minLength": 1},
+    "warden_decision_ref": {"type": "string", "minLength": 1},
+    "execution_route_ref": {"type": "string", "minLength": 1},
+    "provider_binding_ref": {"type": "string", "minLength": 1},
+    "evidence_policy_ref": {"type": "string", "minLength": 1},
+    "exception_ref": {"type": "string", "minLength": 1},
+    "federation_route": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/federationHop"},
+      "description": "Ordered multi-ARC journey. hop_index ordering and from/to continuity are semantic invariants verified by contract tests."
+    },
+    "river_evidence_refs": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "minItems": 1
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "DRAFT", "RESOLVED", "AWAITING_AUTHORITY", "WARDEN_AUTHORIZED",
+        "ROUTE_SELECTED", "EXECUTION_REQUESTED", "PROVIDER_ACCEPTED",
+        "SETTLEMENT_PENDING", "SETTLED", "RIVER_OBSERVED", "RECONCILED",
+        "FINAL", "DENIED", "EXPIRED", "FAILED", "REVERSED", "DISPUTED",
+        "PARTIALLY_SETTLED", "RECONCILIATION_REQUIRED", "COMPENSATION_REQUIRED"
+      ]
+    },
+    "idempotency_key": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "version": {"const": "R0.1"}
+  },
+  "$defs": {
+    "refArray": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "minItems": 1
+    },
+    "federationHop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hop_index",
+        "arc_ref",
+        "from_silk_account_ref",
+        "to_silk_account_ref",
+        "warden_decision_ref"
+      ],
+      "properties": {
+        "hop_index": {"type": "integer", "minimum": 0},
+        "arc_ref": {"type": "string", "minLength": 1},
+        "from_silk_account_ref": {"type": "string", "minLength": 1},
+        "to_silk_account_ref": {"type": "string", "minLength": 1},
+        "warden_decision_ref": {"type": "string", "minLength": 1},
+        "custody_state_from": {"type": "string", "minLength": 1},
+        "custody_state_to": {"type": "string", "minLength": 1},
+        "commercial_obligation_refs": {"$ref": "#/$defs/refArray"},
+        "evidence_refs": {"$ref": "#/$defs/refArray"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "instruction_type": {
+            "enum": ["PAYMENT", "COLLECTION", "SETTLEMENT", "REFUND", "REMITTANCE"]
+          }
+        },
+        "required": ["instruction_type"]
+      },
+      "then": {
+        "required": ["value"],
+        "properties": {
+          "value": {
+            "required": ["kind", "amount", "currency"],
+            "properties": {"kind": {"const": "MONEY"}}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "WARDEN_AUTHORIZED", "ROUTE_SELECTED", "EXECUTION_REQUESTED",
+              "PROVIDER_ACCEPTED", "SETTLEMENT_PENDING", "SETTLED",
+              "RIVER_OBSERVED", "RECONCILED", "FINAL", "DENIED", "FAILED",
+              "PARTIALLY_SETTLED", "REVERSED", "DISPUTED",
+              "RECONCILIATION_REQUIRED", "COMPENSATION_REQUIRED"
+            ]
+          }
+        },
+        "required": ["state"]
+      },
+      "then": {"required": ["warden_decision_ref"]}
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "EXECUTION_REQUESTED", "PROVIDER_ACCEPTED", "SETTLEMENT_PENDING",
+              "SETTLED", "RIVER_OBSERVED", "RECONCILED", "FINAL", "FAILED",
+              "PARTIALLY_SETTLED", "REVERSED", "DISPUTED",
+              "RECONCILIATION_REQUIRED", "COMPENSATION_REQUIRED"
+            ]
+          }
+        },
+        "required": ["state"]
+      },
+      "then": {"required": ["execution_route_ref"]}
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "RIVER_OBSERVED", "RECONCILED", "FINAL", "PARTIALLY_SETTLED",
+              "REVERSED", "DISPUTED", "RECONCILIATION_REQUIRED",
+              "COMPENSATION_REQUIRED"
+            ]
+          }
+        },
+        "required": ["state"]
+      },
+      "then": {"required": ["river_evidence_refs"]}
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "FAILED", "PARTIALLY_SETTLED", "REVERSED", "DISPUTED",
+              "RECONCILIATION_REQUIRED", "COMPENSATION_REQUIRED"
+            ]
+          }
+        },
+        "required": ["state"]
+      },
+      "then": {"required": ["exception_ref"]}
+    }
+  ]
+}
