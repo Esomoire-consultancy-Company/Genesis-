@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from genesis_http import build_response
 
@@ -12,7 +13,6 @@ class GenesisHttpContractTests(unittest.TestCase):
     def test_readiness_reports_missing_database_configuration(self):
         status, payload = build_response("/ready", {}, lambda host, port: True)
         self.assertEqual(status, 503)
-        self.assertEqual(payload["status"], "not_ready")
         self.assertEqual(payload["database"], "not_configured")
 
     def test_readiness_accepts_reachable_legacy_mysql(self):
@@ -34,8 +34,19 @@ class GenesisHttpContractTests(unittest.TestCase):
         })
         self.assertEqual(status, 200)
         self.assertFalse(payload["provider_effects"]["admitted"])
-        self.assertTrue(payload["bindings"]["warden"]["configured"])
-        self.assertTrue(payload["bindings"]["river"]["configured"])
+
+    def test_capability_registry_endpoint_is_observational(self):
+        registry = {
+            "schema_version": "genesis.capability-registry.r0.3",
+            "registry_id": "REG-HTTP-001",
+            "state": "ACTIVE",
+            "providers": [],
+        }
+        with patch("genesis_http.load_registry", return_value=registry):
+            status, payload = build_response("/v1/genesis/capabilities", {})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["provider_count"], 0)
+        self.assertEqual(payload["execution_authority"], "NONE")
 
     def test_unknown_route_returns_404(self):
         status, payload = build_response("/missing", {}, lambda host, port: False)

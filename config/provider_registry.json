@@ -1,0 +1,6 @@
+{
+  "schema_version": "genesis.capability-registry.r0.3",
+  "registry_id": "GENESIS-CAPABILITY-REGISTRY-001",
+  "state": "ACTIVE_EMPTY",
+  "providers": []
+}

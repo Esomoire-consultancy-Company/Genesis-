@@ -1,6 +1,7 @@
 import socket
 from typing import Callable, Mapping, Tuple
 
+from genesis_capability_registry import load_registry, registry_projection
 from genesis_contract import db_target_from_env, service_status
 from genesis_runtime import runtime_projection
 
@@ -24,6 +25,13 @@ def build_response(path: str, env: Mapping[str, str], probe: Probe = tcp_probe) 
 
     if path == "/v1/genesis/runtime":
         return 200, runtime_projection(env)
+
+    if path == "/v1/genesis/capabilities":
+        try:
+            registry = load_registry(env)
+            return 200, registry_projection(registry, env)
+        except (ValueError, OSError) as exc:
+            return 503, {"status": "registry_unavailable", "error": str(exc)}
 
     if path == "/ready":
         target = db_target_from_env(env)
