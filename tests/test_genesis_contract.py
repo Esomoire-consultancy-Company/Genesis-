@@ -5,13 +5,16 @@ from genesis_runtime import provider_effect_admission, runtime_projection
 
 
 class GenesisContractTests(unittest.TestCase):
-    def test_service_status_declares_r02_contract(self):
+    def test_service_status_declares_r03_as_additive_over_r02(self):
         status = service_status()
         self.assertEqual(status["service"], "genesis")
-        self.assertEqual(status["phase"], "provider-flexible-bootstrap")
-        self.assertEqual(status["version"], "0.2.0")
+        self.assertEqual(status["phase"], "capability-registry-bootstrap")
+        self.assertEqual(status["version"], "0.3.0")
         self.assertIn("registry", status["capabilities"])
         self.assertIn("runtime-projection", status["capabilities"])
+        self.assertIn("provider-binding-resolution", status["capabilities"])
+        self.assertIn("capability-registry", status["capabilities"])
+        self.assertIn("capability-candidate-resolution", status["capabilities"])
 
     def test_database_url_prefers_postgres_canonical_binding(self):
         target = db_target_from_env({
