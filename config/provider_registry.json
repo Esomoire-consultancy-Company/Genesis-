@@ -1,6 +1,47 @@
 {
-  "schema_version": "genesis.capability-registry.r0.3",
+  "schema_version": "genesis.capability-registry.r0.4",
   "registry_id": "GENESIS-CAPABILITY-REGISTRY-001",
-  "state": "ACTIVE_EMPTY",
-  "providers": []
+  "state": "ACTIVE",
+  "providers": [
+    {
+      "provider_id": "PROVIDER-RAILWAY-001",
+      "provider_name": "Railway",
+      "domain": "CLOUD",
+      "state": "REGISTERED",
+      "capabilities": [
+        "APPLICATION_RUNTIME",
+        "CONTAINER_BUILD",
+        "DEPLOYMENT",
+        "PRIVATE_NETWORK",
+        "HEALTHCHECK",
+        "METRICS"
+      ],
+      "endpoint_binding_env": null,
+      "credential_posture": "PROVIDER_NATIVE_ONLY",
+      "provenance": {
+        "source_kind": "PROVIDER_NATIVE",
+        "source_system": "RAILWAY",
+        "observed_at": "2026-09-27T01:14:29Z",
+        "evidence_refs": [
+          "railway:project:3db970fd-9b1e-480b-9ddd-7654508254f7",
+          "railway:environment:a635e8a8-9601-48d0-8f29-11b28bfb0beb",
+          "railway:service:d0498f61-851d-42e8-9f89-2566e31282c6",
+          "railway:deployment:7f823261-c32d-4085-9938-23033cdc6fcf",
+          "git:Esomoire-consultancy-Company/Genesis-@982cdc12e3bf280b87b8e8284e801184c37c3480"
+        ]
+      },
+      "dependency": {
+        "criticality": "HIGH",
+        "substitutability": "PARTIAL",
+        "portability": "SOURCE_AND_CONTAINER_CONTRACT",
+        "concentration_scope": "GENESIS_RAILWAY_RUNTIME"
+      },
+      "exit": {
+        "strategy": "REDEPLOY_FROM_GIT_AND_CONTAINER_CONTRACT",
+        "source_repo": "Esomoire-consultancy-Company/Genesis-",
+        "data_export_required": false
+      },
+      "warden_admission_ref": null
+    }
+  ]
 }
