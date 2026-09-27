@@ -15,12 +15,27 @@ class GenesisHttpContractTests(unittest.TestCase):
         self.assertEqual(payload["status"], "not_ready")
         self.assertEqual(payload["database"], "not_configured")
 
-    def test_readiness_accepts_reachable_private_mysql(self):
+    def test_readiness_accepts_reachable_legacy_mysql(self):
         env = {"MYSQL_URL": "mysql://u:p@mysql.railway.internal:3306/railway"}
         status, payload = build_response("/ready", env, lambda host, port: host == "mysql.railway.internal" and port == 3306)
         self.assertEqual(status, 200)
-        self.assertEqual(payload["status"], "ready")
-        self.assertEqual(payload["database"], "reachable")
+        self.assertEqual(payload["database_provider"], "mysql")
+
+    def test_readiness_accepts_reachable_canonical_postgres(self):
+        env = {"DATABASE_URL": "postgresql://u:p@postgres.internal:5432/genesis"}
+        status, payload = build_response("/ready", env, lambda host, port: host == "postgres.internal" and port == 5432)
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["database_provider"], "postgresql")
+
+    def test_runtime_projection_is_observational(self):
+        status, payload = build_response("/v1/genesis/runtime", {
+            "WARDEN_URL": "http://warden.internal",
+            "RIVER_URL": "http://river.internal",
+        })
+        self.assertEqual(status, 200)
+        self.assertFalse(payload["provider_effects"]["admitted"])
+        self.assertTrue(payload["bindings"]["warden"]["configured"])
+        self.assertTrue(payload["bindings"]["river"]["configured"])
 
     def test_unknown_route_returns_404(self):
         status, payload = build_response("/missing", {}, lambda host, port: False)

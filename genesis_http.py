@@ -2,6 +2,7 @@ import socket
 from typing import Callable, Mapping, Tuple
 
 from genesis_contract import db_target_from_env, service_status
+from genesis_runtime import runtime_projection
 
 Probe = Callable[[str, int], bool]
 
@@ -21,6 +22,9 @@ def build_response(path: str, env: Mapping[str, str], probe: Probe = tcp_probe) 
     if path == "/health":
         return 200, {"status": "ok", "service": "genesis"}
 
+    if path == "/v1/genesis/runtime":
+        return 200, runtime_projection(env)
+
     if path == "/ready":
         target = db_target_from_env(env)
         if not target.configured:
@@ -29,6 +33,7 @@ def build_response(path: str, env: Mapping[str, str], probe: Probe = tcp_probe) 
             return 200, {
                 "status": "ready",
                 "database": "reachable",
+                "database_provider": target.provider,
                 "database_name": target.database,
             }
         return 503, {"status": "not_ready", "database": "unreachable"}
