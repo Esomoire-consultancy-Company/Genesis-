@@ -1,0 +1,20 @@
+name: Genesis contract qualification
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Validate Python and registry
+        run: |
+          python -m compileall -q genesis_qualification.py genesis_capability_registry.py genesis_contract.py genesis_http.py genesis_runtime.py main.py
+          python -m unittest discover -s tests -v

@@ -55,6 +55,6 @@ def evaluate_qualification(record, registry):
         "execution_authority": "NONE",
     }
 
-def load_qualification(env, default_path="/app/config/railway_qualification.json"):
+def load_qualification(env, default_path="config/railway_qualification.json"):
     path = Path(env.get("GENESIS_QUALIFICATION_PATH", default_path))
     return json.loads(path.read_text(encoding="utf-8"))
