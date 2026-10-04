@@ -1,0 +1,62 @@
+{
+  "schema_version": "genesis.provider-qualification.r0.5",
+  "qualification_id": "QUAL-RAILWAY-001",
+  "provider_id": "PROVIDER-RAILWAY-001",
+  "evidence_posture": "PROVIDER_NATIVE_OBSERVATIONS_UNATTESTED",
+  "checks": {
+    "provider_identity": {
+      "result": "PASS",
+      "evidence_refs": [
+        "railway:service:d0498f61-851d-42e8-9f89-2566e31282c6"
+      ]
+    },
+    "native_deployment": {
+      "result": "PASS",
+      "evidence_refs": [
+        "railway:deployment:d011a194-e677-4923-ae27-cac5348871d7"
+      ]
+    },
+    "health_observation": {
+      "result": "PASS",
+      "evidence_refs": [
+        "railway:deployment:d011a194-e677-4923-ae27-cac5348871d7:health:200"
+      ]
+    },
+    "principal_binding": {
+      "result": "NOT_TESTED",
+      "evidence_refs": []
+    },
+    "context_binding": {
+      "result": "NOT_TESTED",
+      "evidence_refs": []
+    },
+    "denial_receipt": {
+      "result": "NOT_TESTED",
+      "evidence_refs": []
+    },
+    "operation_contract": {
+      "result": "NOT_TESTED",
+      "evidence_refs": []
+    },
+    "bounded_authority": {
+      "result": "NOT_TESTED",
+      "evidence_refs": []
+    },
+    "effect_observation": {
+      "result": "NOT_TESTED",
+      "evidence_refs": []
+    },
+    "independent_verification": {
+      "result": "NOT_TESTED",
+      "evidence_refs": []
+    },
+    "river_receipt": {
+      "result": "NOT_TESTED",
+      "evidence_refs": []
+    },
+    "reconciliation": {
+      "result": "NOT_TESTED",
+      "evidence_refs": []
+    }
+  }
+}

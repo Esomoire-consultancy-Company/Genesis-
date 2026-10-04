@@ -2,6 +2,7 @@ import socket
 from typing import Callable, Mapping, Tuple
 
 from genesis_capability_registry import load_registry, registry_projection
+from genesis_qualification import load_qualification, evaluate_qualification, QualificationError
 from genesis_contract import db_target_from_env, service_status
 from genesis_runtime import runtime_projection
 
@@ -32,6 +33,12 @@ def build_response(path: str, env: Mapping[str, str], probe: Probe = tcp_probe) 
             return 200, registry_projection(registry, env)
         except (ValueError, OSError) as exc:
             return 503, {"status": "registry_unavailable", "error": str(exc)}
+
+    if path == "/v1/genesis/qualification":
+        try:
+            return 200, evaluate_qualification(load_qualification(env), load_registry(env))
+        except (ValueError, OSError, QualificationError) as exc:
+            return 503, {"status": "qualification_unavailable", "error": type(exc).__name__}
 
     if path == "/ready":
         target = db_target_from_env(env)
