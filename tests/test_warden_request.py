@@ -139,6 +139,15 @@ class WardenRequestTests(unittest.TestCase):
         result = evaluate_warden_request(envelope, principals, registry, {}, now=NOW)
         self.assertEqual(result["reason"], "caller_authority_or_routing_assertion_not_allowed")
 
+    def test_non_string_request_id_fails_closed_without_projection_exception(self):
+        private, principals, envelope, registry = fixture()
+        envelope["signed_claim"]["request_id"] = 1
+        envelope["signature_b64"] = base64.b64encode(private.sign(canonical_json(envelope["signed_claim"]))).decode()
+        result = evaluate_warden_request(envelope, principals, registry, {}, now=NOW)
+        self.assertFalse(result["request_validated"])
+        self.assertEqual(result["reason"], "invalid_warden_request")
+        self.assertIsNone(result["intent_ref"])
+
     def test_unsigned_or_bad_signature_fails_closed(self):
         _, principals, envelope, registry = fixture()
         unsigned = evaluate_warden_request(envelope["signed_claim"], principals, registry, {}, now=NOW)
