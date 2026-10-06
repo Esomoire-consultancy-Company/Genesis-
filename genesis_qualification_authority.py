@@ -22,9 +22,14 @@ def qualification_digest(record):
 def validate_authority_registry(registry):
     if not isinstance(registry, dict) or registry.get("schema_version") != AUTHORITY_SCHEMA:
         raise AuthorityError("INVALID_AUTHORITY_REGISTRY")
+    state = registry.get("state")
+    if state not in {"ACTIVE", "ACTIVE_EMPTY", "SUSPENDED", "RETIRED"}:
+        raise AuthorityError("INVALID_AUTHORITY_REGISTRY_STATE")
     authorities = registry.get("authorities")
     if not isinstance(authorities, list):
         raise AuthorityError("AUTHORITIES_MUST_BE_LIST")
+    if state == "ACTIVE_EMPTY" and authorities:
+        raise AuthorityError("ACTIVE_EMPTY_REGISTRY_MUST_HAVE_NO_AUTHORITIES")
     seen = set()
     for item in authorities:
         if not isinstance(item, dict):
@@ -42,6 +47,10 @@ def validate_authority_registry(registry):
         scope = item.get("scope")
         if not isinstance(scope, dict) or not isinstance(scope.get("domains"), list) or not isinstance(scope.get("capabilities"), list):
             raise AuthorityError("AUTHORITY_SCOPE_REQUIRED")
+        if not scope["domains"] or any(not isinstance(v, str) or not v.strip() for v in scope["domains"]):
+            raise AuthorityError("INVALID_AUTHORITY_DOMAIN_SCOPE")
+        if not scope["capabilities"] or any(not isinstance(v, str) or not v.strip() for v in scope["capabilities"]):
+            raise AuthorityError("INVALID_AUTHORITY_CAPABILITY_SCOPE")
     return registry
 
 def load_authority_registry(env, default_path="config/qualification_authorities.json"):
@@ -95,6 +104,8 @@ def evaluate_attestation(attestation, qualification, provider_registry, authorit
         return {**base, "reason": "qualification_evidence_incomplete"}
     if attestation is None:
         return {**base, "reason": "attestation_not_issued"}
+    if authority_registry.get("state") != "ACTIVE":
+        return {**base, "reason": "qualification_authority_registry_not_active"}
     if not isinstance(attestation, dict) or attestation.get("schema_version") != ATTESTATION_SCHEMA:
         raise AuthorityError("INVALID_ATTESTATION_SCHEMA")
     claim, signature = attestation.get("signed_claim"), attestation.get("signature_b64")
@@ -111,13 +122,18 @@ def evaluate_attestation(attestation, qualification, provider_registry, authorit
     provider = next((p for p in provider_registry.get("providers", []) if p.get("provider_id") == provider_id), None)
     if provider is None or claim.get("provider_id") != provider_id:
         return {**base, "reason": "provider_binding_mismatch"}
-    if claim.get("qualification_id") != qualification.get("qualification_id"):
+    qualification_id = qualification.get("qualification_id")
+    if not isinstance(qualification_id, str) or not qualification_id.strip():
+        return {**base, "reason": "qualification_id_missing"}
+    if claim.get("qualification_id") != qualification_id:
         return {**base, "reason": "qualification_id_mismatch"}
     if claim.get("qualification_digest") != qualification_digest(qualification):
         return {**base, "reason": "qualification_digest_mismatch"}
     capabilities = claim.get("capability_scope")
     if not isinstance(capabilities, list) or not capabilities:
         return {**base, "reason": "capability_scope_required"}
+    if any(not isinstance(v, str) or not v.strip() for v in capabilities):
+        return {**base, "reason": "invalid_capability_scope"}
     if provider.get("domain") not in issuer["scope"]["domains"]:
         return {**base, "reason": "authority_domain_out_of_scope"}
     if not set(capabilities).issubset(set(provider.get("capabilities", []))):
@@ -146,6 +162,7 @@ def authority_projection(registry):
     return {
         "schema_version": registry["schema_version"],
         "registry_id": registry.get("registry_id"),
+        "state": registry.get("state"),
         "authority_count": len(registry["authorities"]),
         "active_authority_count": sum(1 for a in registry["authorities"] if a["state"] == "ACTIVE"),
         "signature_algorithm": "Ed25519",

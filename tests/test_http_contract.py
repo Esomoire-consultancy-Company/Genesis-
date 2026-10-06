@@ -48,6 +48,27 @@ class GenesisHttpContractTests(unittest.TestCase):
         self.assertEqual(payload["provider_count"], 0)
         self.assertEqual(payload["execution_authority"], "NONE")
 
+    def test_qualification_authority_endpoint_is_observational(self):
+        status, payload = build_response("/v1/genesis/qualification-authority", {})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["authority_registry"]["state"], "ACTIVE_EMPTY")
+        self.assertFalse(payload["provider_qualification"]["qualified"])
+        self.assertEqual(payload["provider_qualification"]["execution_authority"], "NONE")
+
+    def test_qualification_authority_endpoint_maps_invalid_registry_to_503(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "bad-authorities.json"
+            p.write_text('{"schema_version":"wrong","authorities":[]}', encoding="utf-8")
+            status, payload = build_response(
+                "/v1/genesis/qualification-authority",
+                {"GENESIS_QUALIFICATION_AUTHORITY_PATH": str(p)},
+            )
+        self.assertEqual(status, 503)
+        self.assertEqual(payload["status"], "qualification_authority_unavailable")
+        self.assertEqual(payload["error"], "INVALID_AUTHORITY_REGISTRY")
+
     def test_unknown_route_returns_404(self):
         status, payload = build_response("/missing", {}, lambda host, port: False)
         self.assertEqual(status, 404)

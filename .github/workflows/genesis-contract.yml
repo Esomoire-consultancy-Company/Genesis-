@@ -14,8 +14,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Install qualification verifier
-        run: python -m pip install "cryptography>=43,<47"
+      - name: Install production dependencies
+        run: python -m pip install -r requirements.txt
       - name: Validate Python and registry
         run: |
           python -m compileall -q genesis_qualification.py genesis_qualification_authority.py genesis_capability_registry.py genesis_contract.py genesis_http.py genesis_runtime.py main.py
