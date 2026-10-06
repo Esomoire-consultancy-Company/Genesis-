@@ -1,119 +1,248 @@
-"""Genesis R0.8 provider-neutral request contract for Warden evaluation."""
+"""Genesis R0.8 provider-neutral, non-authorizing Warden request validation."""
 from __future__ import annotations
-import base64, json
+
+import base64
+import json
 from datetime import datetime, timezone
 from pathlib import Path
+
 from genesis_capability_registry import resolve_capability_candidates
 
-REQUEST_SCHEMA="genesis.warden-evaluation-request.r0.8"
-PRINCIPAL_SCHEMA="genesis.principal-authority-registry.r0.8"
-SIGNING_DOMAIN="GENESIS/WARDEN/REQUEST/v1"
-KEY_PURPOSE="WARDEN_REQUEST"
-FORBIDDEN={"provider_id","provider_ref","selected_provider","route_ref","executor_ref"}
+REQUEST_SCHEMA = "genesis.warden-evaluation-request.r0.8"
+PRINCIPAL_SCHEMA = "genesis.principal-authority-registry.r0.8"
+SIGNING_DOMAIN = "GENESIS/WARDEN/REQUEST/v1"
+KEY_PURPOSE = "WARDEN_REQUEST"
 
-class WardenRequestError(ValueError): pass
+FORBIDDEN_CALLER_KEYS = {
+    "provider", "provider_id", "provider_name", "provider_ref", "selected_provider",
+    "route_ref", "executor_ref", "target_warden_ref", "warden_id", "warden_ref",
+    "principal_ref", "principal_id", "authority_ref", "authority_decision_id",
+    "decision_ref", "warden_decision_ref", "grant_ref", "consent_ref",
+    "allowed", "admitted", "execution_authorized", "authorization_issuer",
+}
 
-def canonical_json(v):
-    return json.dumps(v,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode()
 
-def _time(v):
-    if not isinstance(v,str): raise WardenRequestError("INVALID_WARDEN_REQUEST_TIME")
+class WardenRequestError(ValueError):
+    pass
+
+
+def canonical_json(value):
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+
+def _parse_time(value):
+    if not isinstance(value, str):
+        raise WardenRequestError("INVALID_WARDEN_REQUEST_TIME")
     try:
-        d=datetime.fromisoformat(v.replace("Z","+00:00"))
-        if d.tzinfo is None: raise WardenRequestError("WARDEN_REQUEST_TIME_MUST_BE_OFFSET_AWARE")
-        return d.astimezone(timezone.utc)
-    except (ValueError,OverflowError) as e: raise WardenRequestError("INVALID_WARDEN_REQUEST_TIME") from e
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            raise WardenRequestError("WARDEN_REQUEST_TIME_MUST_BE_OFFSET_AWARE")
+        return parsed.astimezone(timezone.utc)
+    except (ValueError, OverflowError) as exc:
+        raise WardenRequestError("INVALID_WARDEN_REQUEST_TIME") from exc
 
-def _valid_key(v):
+
+def _contains_forbidden_key(value):
+    if isinstance(value, dict):
+        if FORBIDDEN_CALLER_KEYS.intersection(value):
+            return True
+        return any(_contains_forbidden_key(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_forbidden_key(item) for item in value)
+    return False
+
+
+def _valid_public_key(value):
+    if not isinstance(value, str) or not value:
+        return False
     try:
-        raw=base64.b64decode(v,validate=True)
-        if len(raw)!=32:return False
+        raw = base64.b64decode(value, validate=True)
+        if len(raw) != 32:
+            return False
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-        Ed25519PublicKey.from_public_bytes(raw); return True
-    except Exception:return False
+        Ed25519PublicKey.from_public_bytes(raw)
+        return True
+    except Exception:
+        return False
 
-def validate_principal_registry(r):
-    if not isinstance(r,dict) or r.get("schema_version")!=PRINCIPAL_SCHEMA: raise WardenRequestError("INVALID_PRINCIPAL_AUTHORITY_REGISTRY")
-    if r.get("state") not in {"ACTIVE","ACTIVE_EMPTY","SUSPENDED","RETIRED"}: raise WardenRequestError("INVALID_PRINCIPAL_AUTHORITY_REGISTRY_STATE")
-    a=r.get("authorities")
-    if not isinstance(a,list): raise WardenRequestError("PRINCIPAL_AUTHORITIES_MUST_BE_LIST")
-    if r["state"]=="ACTIVE_EMPTY" and a: raise WardenRequestError("ACTIVE_EMPTY_PRINCIPAL_REGISTRY_MUST_HAVE_NO_AUTHORITIES")
-    seen=set()
-    for x in a:
-        if not isinstance(x,dict): raise WardenRequestError("INVALID_PRINCIPAL_AUTHORITY")
-        if not isinstance(x.get("principal_ref"),str) or not x["principal_ref"]: raise WardenRequestError("PRINCIPAL_REF_REQUIRED")
-        kid=x.get("signer_key_id")
-        if not isinstance(kid,str) or not kid or kid in seen: raise WardenRequestError("PRINCIPAL_SIGNER_KEY_REQUIRED_OR_DUPLICATE")
-        seen.add(kid)
-        if x.get("state") not in {"ACTIVE","SUSPENDED","RETIRED"}: raise WardenRequestError("INVALID_PRINCIPAL_SIGNER_STATE")
-        if x.get("algorithm")!="Ed25519" or x.get("key_purpose")!=KEY_PURPOSE: raise WardenRequestError("INVALID_PRINCIPAL_SIGNER_CONTRACT")
-        if not _valid_key(x.get("public_key_b64")): raise WardenRequestError("INVALID_PRINCIPAL_PUBLIC_KEY")
-        s=x.get("scope")
-        if not isinstance(s,dict): raise WardenRequestError("PRINCIPAL_AUTHORITY_SCOPE_REQUIRED")
-        for f in ("capabilities","purposes"):
-            vals=s.get(f)
-            if not isinstance(vals,list) or not vals or any(not isinstance(v,str) or not v for v in vals): raise WardenRequestError("INVALID_PRINCIPAL_AUTHORITY_SCOPE")
-    return r
 
-def load_principal_authority_registry(env,default_path="config/principal_authorities.json"):
-    return validate_principal_registry(json.loads(Path(env.get("GENESIS_PRINCIPAL_AUTHORITY_PATH",default_path)).read_text()))
+def validate_principal_registry(registry):
+    if not isinstance(registry, dict) or registry.get("schema_version") != PRINCIPAL_SCHEMA:
+        raise WardenRequestError("INVALID_PRINCIPAL_AUTHORITY_REGISTRY")
+    if registry.get("state") not in {"ACTIVE", "ACTIVE_EMPTY", "SUSPENDED", "RETIRED"}:
+        raise WardenRequestError("INVALID_PRINCIPAL_AUTHORITY_REGISTRY_STATE")
+    authorities = registry.get("authorities")
+    if not isinstance(authorities, list):
+        raise WardenRequestError("PRINCIPAL_AUTHORITIES_MUST_BE_LIST")
+    if registry["state"] == "ACTIVE_EMPTY" and authorities:
+        raise WardenRequestError("ACTIVE_EMPTY_PRINCIPAL_REGISTRY_MUST_HAVE_NO_AUTHORITIES")
 
-def validate_warden_request(e):
-    if not isinstance(e,dict) or e.get("schema_version")!=REQUEST_SCHEMA: raise WardenRequestError("INVALID_WARDEN_REQUEST")
-    c,s=e.get("signed_claim"),e.get("signature_b64")
-    if not isinstance(c,dict) or not isinstance(s,str) or not s: raise WardenRequestError("INVALID_WARDEN_REQUEST")
-    if FORBIDDEN.intersection(c): raise WardenRequestError("PROVIDER_SELECTION_NOT_ALLOWED")
-    req=("signing_domain","request_id","nonce","idempotency_key","correlation_id","principal_ref","signer_key_id","origin_ref","target_warden_ref","capability_id","requested_effect","purpose_ref")
-    if any(not isinstance(c.get(f),str) or not c[f] for f in req): raise WardenRequestError("INVALID_WARDEN_REQUEST")
-    if not isinstance(c.get("constraints"),dict): raise WardenRequestError("INVALID_WARDEN_REQUEST")
-    ev=c.get("evidence_required")
-    if not isinstance(ev,list) or not ev or any(not isinstance(v,str) or not v for v in ev): raise WardenRequestError("INVALID_WARDEN_REQUEST")
-    if _time(c.get("expires_at"))<=_time(c.get("issued_at")): raise WardenRequestError("INVALID_WARDEN_REQUEST_WINDOW")
-    try: base64.b64decode(s,validate=True)
-    except Exception as ex: raise WardenRequestError("INVALID_WARDEN_REQUEST") from ex
-    return e
+    seen = set()
+    for authority in authorities:
+        if not isinstance(authority, dict):
+            raise WardenRequestError("INVALID_PRINCIPAL_AUTHORITY")
+        principal_ref = authority.get("principal_ref")
+        key_id = authority.get("signer_key_id")
+        if not isinstance(principal_ref, str) or not principal_ref.strip():
+            raise WardenRequestError("PRINCIPAL_REF_REQUIRED")
+        if not isinstance(key_id, str) or not key_id.strip() or key_id in seen:
+            raise WardenRequestError("PRINCIPAL_SIGNER_KEY_REQUIRED_OR_DUPLICATE")
+        seen.add(key_id)
+        if authority.get("state") not in {"ACTIVE", "SUSPENDED", "RETIRED"}:
+            raise WardenRequestError("INVALID_PRINCIPAL_SIGNER_STATE")
+        if authority.get("algorithm") != "Ed25519" or authority.get("key_purpose") != KEY_PURPOSE:
+            raise WardenRequestError("INVALID_PRINCIPAL_SIGNER_CONTRACT")
+        if not _valid_public_key(authority.get("public_key_b64")):
+            raise WardenRequestError("INVALID_PRINCIPAL_PUBLIC_KEY")
+        scope = authority.get("scope")
+        if not isinstance(scope, dict):
+            raise WardenRequestError("PRINCIPAL_AUTHORITY_SCOPE_REQUIRED")
+        for field in ("capabilities", "purposes"):
+            values = scope.get(field)
+            if not isinstance(values, list) or not values or any(
+                not isinstance(value, str) or not value.strip() for value in values
+            ):
+                raise WardenRequestError("INVALID_PRINCIPAL_AUTHORITY_SCOPE")
+    return registry
 
-def _verify(k,s,p):
+
+def load_principal_authority_registry(env, default_path="config/principal_authorities.json"):
+    path = Path(env.get("GENESIS_PRINCIPAL_AUTHORITY_PATH", default_path))
+    return validate_principal_registry(json.loads(path.read_text(encoding="utf-8")))
+
+
+def validate_warden_request(envelope):
+    if not isinstance(envelope, dict) or envelope.get("schema_version") != REQUEST_SCHEMA:
+        raise WardenRequestError("INVALID_WARDEN_REQUEST")
+    claim = envelope.get("signed_claim")
+    signature = envelope.get("signature_b64")
+    if not isinstance(claim, dict) or not isinstance(signature, str) or not signature:
+        raise WardenRequestError("INVALID_WARDEN_REQUEST")
+    if _contains_forbidden_key(claim):
+        raise WardenRequestError("CALLER_AUTHORITY_OR_ROUTING_ASSERTION_NOT_ALLOWED")
+
+    required = (
+        "signing_domain", "request_id", "nonce", "idempotency_key", "correlation_id",
+        "signer_key_id", "capability_id", "requested_effect", "purpose_ref",
+    )
+    if any(not isinstance(claim.get(field), str) or not claim[field].strip() for field in required):
+        raise WardenRequestError("INVALID_WARDEN_REQUEST")
+    if not isinstance(claim.get("constraints"), dict):
+        raise WardenRequestError("INVALID_WARDEN_REQUEST")
+    evidence = claim.get("evidence_required")
+    if not isinstance(evidence, list) or not evidence or any(
+        not isinstance(value, str) or not value.strip() for value in evidence
+    ):
+        raise WardenRequestError("INVALID_WARDEN_REQUEST")
+
+    issued = _parse_time(claim.get("issued_at"))
+    expires = _parse_time(claim.get("expires_at"))
+    if expires <= issued:
+        raise WardenRequestError("INVALID_WARDEN_REQUEST_WINDOW")
+    try:
+        base64.b64decode(signature, validate=True)
+    except Exception as exc:
+        raise WardenRequestError("INVALID_WARDEN_REQUEST") from exc
+    return envelope
+
+
+def _verify_ed25519(public_key_b64, signature_b64, payload):
     try:
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-        Ed25519PublicKey.from_public_bytes(base64.b64decode(k,validate=True)).verify(base64.b64decode(s,validate=True),p); return True
-    except Exception:return False
+        key = Ed25519PublicKey.from_public_bytes(base64.b64decode(public_key_b64, validate=True))
+        key.verify(base64.b64decode(signature_b64, validate=True), payload)
+        return True
+    except Exception:
+        return False
 
-def _allows(vals,v): return "*" in vals or v in vals
 
-def projection(reason,c=None):
-    c=c if isinstance(c,dict) else {}
-    return {"schema_version":REQUEST_SCHEMA,"request_validated":False,"request_state":"REJECTED","reason":reason,
-      "intent_ref":("warden-request:"+c["request_id"]) if c.get("request_id") else None,
-      "idempotency_key":c.get("idempotency_key"),"correlation_id":c.get("correlation_id"),"principal_ref":c.get("principal_ref"),
-      "origin_ref":c.get("origin_ref"),"target_warden_ref":c.get("target_warden_ref"),"capability_id":c.get("capability_id"),
-      "requested_effect":c.get("requested_effect"),"purpose_ref":c.get("purpose_ref"),"candidate_count":0,
-      "route_selection":"OUT_OF_SCOPE","selected_provider":None,"admitted":False,"execution_authority":"NONE",
-      "dispatch_authority":"NONE","forwarding_state":"NOT_DISPATCHED","warden_evaluation_required":True,
-      "warden_decision_ref":None,"provider_effects_allowed":False,"provider_native_execution_required":True,
-      "river_evidence_state":"REQUIRED_PENDING","replay_protection":"REQUIRED_AT_WARDEN_INGRESS"}
+def _scope_allows(values, requested):
+    return "*" in values or requested in values
 
-def evaluate_warden_request(e,principals,registry,env,now=None):
-    c=e.get("signed_claim") if isinstance(e,dict) else None
-    try: validate_warden_request(e)
-    except WardenRequestError as ex:
-        return projection("provider_selection_not_allowed" if str(ex)=="PROVIDER_SELECTION_NOT_ALLOWED" else "invalid_warden_request",c)
-    validate_principal_registry(principals)
-    if principals["state"]!="ACTIVE": return projection("principal_authority_registry_not_active",c)
-    if c["signing_domain"]!=SIGNING_DOMAIN:return projection("invalid_signing_domain",c)
-    signer=next((x for x in principals["authorities"] if x["principal_ref"]==c["principal_ref"] and x["signer_key_id"]==c["signer_key_id"]),None)
-    if signer is None:return projection("unknown_principal_signing_key",c)
-    if signer["state"]!="ACTIVE":return projection("principal_signing_key_not_active",c)
-    if not _verify(signer["public_key_b64"],e["signature_b64"],canonical_json(c)):return projection("signature_verification_failed",c)
-    if not _allows(signer["scope"]["capabilities"],c["capability_id"]):return projection("principal_capability_out_of_scope",c)
-    if not _allows(signer["scope"]["purposes"],c["purpose_ref"]):return projection("principal_purpose_out_of_scope",c)
-    current=now or datetime.now(timezone.utc)
-    if current.tzinfo is None:raise WardenRequestError("NOW_MUST_BE_OFFSET_AWARE")
-    current=current.astimezone(timezone.utc)
-    if current<_time(c["issued_at"]):return projection("request_not_yet_valid",c)
-    if current>=_time(c["expires_at"]):return projection("request_expired",c)
-    candidates=resolve_capability_candidates(registry,env,c["capability_id"])
-    if not candidates:return projection("capability_not_registered_or_active",c)
-    out=projection("validated_for_warden_evaluation",c)
-    out.update({"request_validated":True,"request_state":"VALIDATED_NOT_DISPATCHED","candidate_count":len(candidates)})
-    return out
+
+def request_projection(reason, claim=None, principal_ref=None):
+    claim = claim if isinstance(claim, dict) else {}
+    return {
+        "schema_version": REQUEST_SCHEMA,
+        "request_validated": False,
+        "request_state": "REJECTED",
+        "reason": reason,
+        "intent_ref": ("warden-request:" + claim["request_id"]) if claim.get("request_id") else None,
+        "idempotency_key": claim.get("idempotency_key"),
+        "correlation_id": claim.get("correlation_id"),
+        "principal_ref": principal_ref,
+        "capability_id": claim.get("capability_id"),
+        "requested_effect": claim.get("requested_effect"),
+        "purpose_ref": claim.get("purpose_ref"),
+        "candidate_count": 0,
+        "route_selection": "OUT_OF_SCOPE",
+        "selected_provider": None,
+        "admitted": False,
+        "execution_authority": "NONE",
+        "dispatch_authority": "NONE",
+        "forwarding_state": "NOT_DISPATCHED",
+        "warden_evaluation_required": True,
+        "warden_decision_ref": None,
+        "provider_effects_allowed": False,
+        "provider_native_execution_required": True,
+        "river_evidence_state": "REQUIRED_PENDING",
+        "replay_protection": "REQUIRED_AT_WARDEN_INGRESS",
+        "caller_authority_assertions_accepted": False,
+        "caller_routing_assertions_accepted": False,
+    }
+
+
+def evaluate_warden_request(envelope, principal_registry, capability_registry, env, now=None):
+    claim = envelope.get("signed_claim") if isinstance(envelope, dict) else None
+    try:
+        validate_warden_request(envelope)
+    except WardenRequestError as exc:
+        reason = (
+            "caller_authority_or_routing_assertion_not_allowed"
+            if str(exc) == "CALLER_AUTHORITY_OR_ROUTING_ASSERTION_NOT_ALLOWED"
+            else "invalid_warden_request"
+        )
+        return request_projection(reason, claim)
+
+    validate_principal_registry(principal_registry)
+    if principal_registry["state"] != "ACTIVE":
+        return request_projection("principal_authority_registry_not_active", claim)
+    if claim["signing_domain"] != SIGNING_DOMAIN:
+        return request_projection("invalid_signing_domain", claim)
+
+    signer = next(
+        (item for item in principal_registry["authorities"] if item["signer_key_id"] == claim["signer_key_id"]),
+        None,
+    )
+    if signer is None:
+        return request_projection("unknown_principal_signing_key", claim)
+    principal_ref = signer["principal_ref"]
+    if signer["state"] != "ACTIVE":
+        return request_projection("principal_signing_key_not_active", claim, principal_ref)
+    if not _verify_ed25519(signer["public_key_b64"], envelope["signature_b64"], canonical_json(claim)):
+        return request_projection("signature_verification_failed", claim, principal_ref)
+    if not _scope_allows(signer["scope"]["capabilities"], claim["capability_id"]):
+        return request_projection("principal_capability_out_of_scope", claim, principal_ref)
+    if not _scope_allows(signer["scope"]["purposes"], claim["purpose_ref"]):
+        return request_projection("principal_purpose_out_of_scope", claim, principal_ref)
+
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        raise WardenRequestError("NOW_MUST_BE_OFFSET_AWARE")
+    current = current.astimezone(timezone.utc)
+    if current < _parse_time(claim["issued_at"]):
+        return request_projection("request_not_yet_valid", claim, principal_ref)
+    if current >= _parse_time(claim["expires_at"]):
+        return request_projection("request_expired", claim, principal_ref)
+
+    candidates = resolve_capability_candidates(capability_registry, env, claim["capability_id"])
+    if not candidates:
+        return request_projection("capability_not_registered_or_active", claim, principal_ref)
+
+    result = request_projection("validated_for_warden_evaluation", claim, principal_ref)
+    result.update({
+        "request_validated": True,
+        "request_state": "VALIDATED_NOT_DISPATCHED",
+        "candidate_count": len(candidates),
+    })
+    return result
