@@ -5,7 +5,7 @@ from genesis_capability_registry import load_registry, registry_projection
 from genesis_qualification import load_qualification, evaluate_qualification, QualificationError
 from genesis_qualification_authority import load_authority_registry, load_attestation, evaluate_attestation, authority_projection, AuthorityError
 from genesis_contract import db_target_from_env, service_status
-from genesis_warden_admission import load_warden_decision, evaluate_warden_admission, WardenAdmissionError
+from genesis_warden_admission import load_warden_decision, load_warden_authority_registry, evaluate_warden_admission, WardenAdmissionError
 from genesis_runtime import runtime_projection
 
 Probe = Callable[[str, int], bool]
@@ -60,13 +60,14 @@ def build_response(path: str, env: Mapping[str, str], probe: Probe = tcp_probe) 
             attestation = load_attestation(env)
             qualification_result = evaluate_attestation(attestation, qualification, providers, authorities)
             decision = load_warden_decision(env)
+            warden_authorities = load_warden_authority_registry(env)
             provider_id = qualification.get("provider_id")
             capability_scope = (
                 decision.get("capability_scope", []) if isinstance(decision, dict)
                 else qualification_result.get("capability_scope", [])
             )
             return 200, evaluate_warden_admission(
-                decision, qualification_result, provider_id, capability_scope
+                decision, qualification_result, provider_id, capability_scope, warden_authorities
             )
         except (ValueError, OSError, QualificationError, AuthorityError, WardenAdmissionError) as exc:
             return 503, {"status": "warden_admission_unavailable", "error": str(exc)}
