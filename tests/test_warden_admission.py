@@ -1,8 +1,14 @@
+import base64
 import copy
 import unittest
 from datetime import datetime, timezone
 
-from genesis_warden_admission import evaluate_warden_admission, decision_digest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+from genesis_warden_admission import (
+    canonical_json, decision_digest, evaluate_warden_admission,
+)
 
 NOW = datetime(2026, 10, 6, 14, 0, tzinfo=timezone.utc)
 
@@ -19,9 +25,34 @@ NOT_QUALIFIED = {
     "execution_authority": "NONE",
 }
 
-def allow_decision():
-    return {
-        "schema_version": "genesis.warden-admission-decision.r0.7",
+
+def signed_fixture():
+    private = Ed25519PrivateKey.generate()
+    public_b64 = base64.b64encode(private.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )).decode()
+    authorities = {
+        "schema_version": "genesis.warden-authority-registry.r0.7",
+        "registry_id": "GENESIS-WARDEN-AUTHORITY-REGISTRY-TEST",
+        "state": "ACTIVE",
+        "authorities": [{
+            "warden_id": "digitalme:test-warden",
+            "signer_key_id": "warden-test-key-001",
+            "state": "ACTIVE",
+            "algorithm": "Ed25519",
+            "key_purpose": "WARDEN_DECISION",
+            "public_key_b64": public_b64,
+            "scope": {
+                "providers": ["PROVIDER-RAILWAY-001"],
+                "capabilities": ["APPLICATION_RUNTIME"],
+            },
+        }],
+    }
+    claim = {
+        "signing_domain": "GENESIS/WARDEN/DECISION/v1",
+        "warden_id": "digitalme:test-warden",
+        "signer_key_id": "warden-test-key-001",
         "decision_id": "WARDEN-DECISION-001",
         "decision": "ALLOW",
         "provider_id": "PROVIDER-RAILWAY-001",
@@ -36,28 +67,92 @@ def allow_decision():
         "issued_at": "2026-10-06T13:00:00Z",
         "expires_at": "2026-10-06T15:00:00Z",
     }
+    envelope = {
+        "schema_version": "genesis.warden-admission-decision.r0.7",
+        "signed_claim": claim,
+        "signature_b64": base64.b64encode(private.sign(canonical_json(claim))).decode(),
+    }
+    return private, authorities, envelope
+
+
+def evaluate(envelope, authorities, qualification=QUALIFIED, provider_id="PROVIDER-RAILWAY-001",
+             capabilities=None, now=NOW):
+    return evaluate_warden_admission(
+        envelope, qualification, provider_id,
+        capabilities or ["APPLICATION_RUNTIME"], authorities, now=now,
+    )
+
 
 class WardenAdmissionTests(unittest.TestCase):
     def test_no_decision_is_not_admitted(self):
-        result = evaluate_warden_admission(None, QUALIFIED, "PROVIDER-RAILWAY-001", ["APPLICATION_RUNTIME"], now=NOW)
+        _, authorities, _ = signed_fixture()
+        result = evaluate(None, authorities)
         self.assertFalse(result["admitted"])
         self.assertEqual(result["reason"], "warden_decision_missing")
         self.assertEqual(result["execution_authority"], "NONE")
 
     def test_unqualified_provider_never_reaches_admission(self):
-        result = evaluate_warden_admission(allow_decision(), NOT_QUALIFIED, "PROVIDER-RAILWAY-001", ["APPLICATION_RUNTIME"], now=NOW)
+        _, authorities, envelope = signed_fixture()
+        result = evaluate(envelope, authorities, qualification=NOT_QUALIFIED)
         self.assertFalse(result["admitted"])
         self.assertEqual(result["reason"], "provider_not_eligible_for_warden_evaluation")
+        self.assertEqual(result["execution_authority"], "NONE")
+
+    def test_unsigned_decision_is_rejected(self):
+        _, authorities, envelope = signed_fixture()
+        result = evaluate(envelope["signed_claim"], authorities)
+        self.assertFalse(result["admitted"])
+        self.assertEqual(result["reason"], "invalid_warden_decision")
+        self.assertEqual(result["execution_authority"], "NONE")
+
+    def test_wrong_signature_is_rejected(self):
+        _, authorities, envelope = signed_fixture()
+        wrong = Ed25519PrivateKey.generate()
+        envelope["signature_b64"] = base64.b64encode(
+            wrong.sign(canonical_json(envelope["signed_claim"]))
+        ).decode()
+        result = evaluate(envelope, authorities)
+        self.assertFalse(result["admitted"])
+        self.assertEqual(result["reason"], "signature_verification_failed")
+
+    def test_unknown_and_suspended_warden_keys_are_rejected(self):
+        _, authorities, envelope = signed_fixture()
+        unknown = copy.deepcopy(envelope)
+        unknown["signed_claim"]["signer_key_id"] = "unknown-key"
+        result = evaluate(unknown, authorities)
+        self.assertFalse(result["admitted"])
+        self.assertEqual(result["reason"], "unknown_warden_signing_key")
+        authorities["authorities"][0]["state"] = "SUSPENDED"
+        result = evaluate(envelope, authorities)
+        self.assertFalse(result["admitted"])
+        self.assertEqual(result["reason"], "warden_signing_key_not_active")
+
+    def test_wrong_signing_domain_or_key_purpose_is_rejected(self):
+        _, authorities, envelope = signed_fixture()
+        wrong_domain = copy.deepcopy(envelope)
+        wrong_domain["signed_claim"]["signing_domain"] = "OTHER"
+        result = evaluate(wrong_domain, authorities)
+        self.assertFalse(result["admitted"])
+        self.assertEqual(result["reason"], "invalid_signing_domain")
+        authorities["authorities"][0]["key_purpose"] = "OTHER"
+        result = evaluate(envelope, authorities)
+        self.assertFalse(result["admitted"])
+        self.assertEqual(result["reason"], "invalid_warden_key_purpose")
 
     def test_deny_always_wins(self):
-        decision = allow_decision()
-        decision["decision"] = "DENY"
-        result = evaluate_warden_admission(decision, QUALIFIED, "PROVIDER-RAILWAY-001", ["APPLICATION_RUNTIME"], now=NOW)
+        private, authorities, envelope = signed_fixture()
+        envelope["signed_claim"]["decision"] = "DENY"
+        envelope["signature_b64"] = base64.b64encode(
+            private.sign(canonical_json(envelope["signed_claim"]))
+        ).decode()
+        result = evaluate(envelope, authorities)
         self.assertFalse(result["admitted"])
         self.assertEqual(result["reason"], "warden_denied")
+        self.assertEqual(result["execution_authority"], "NONE")
 
-    def test_valid_allow_is_scoped_admission_not_execution_authority(self):
-        result = evaluate_warden_admission(allow_decision(), QUALIFIED, "PROVIDER-RAILWAY-001", ["APPLICATION_RUNTIME"], now=NOW)
+    def test_valid_signed_allow_is_scoped_admission_not_execution_authority(self):
+        _, authorities, envelope = signed_fixture()
+        result = evaluate(envelope, authorities)
         self.assertTrue(result["admitted"])
         self.assertEqual(result["admission_state"], "ADMITTED")
         self.assertEqual(result["execution_authority"], "NONE")
@@ -65,45 +160,39 @@ class WardenAdmissionTests(unittest.TestCase):
         self.assertEqual(result["river_evidence_state"], "REQUIRED_PENDING")
 
     def test_provider_and_capability_mismatch_fail_closed(self):
-        decision = allow_decision()
-        provider_mismatch = evaluate_warden_admission(
-            decision, QUALIFIED, "OTHER", ["APPLICATION_RUNTIME"], now=NOW
-        )
+        _, authorities, envelope = signed_fixture()
+        provider_mismatch = evaluate(envelope, authorities, provider_id="OTHER")
         self.assertEqual(provider_mismatch["reason"], "provider_scope_mismatch")
         self.assertFalse(provider_mismatch["admitted"])
         self.assertEqual(provider_mismatch["execution_authority"], "NONE")
-        capability_mismatch = evaluate_warden_admission(
-            decision, QUALIFIED, "PROVIDER-RAILWAY-001", ["DEPLOYMENT"], now=NOW
-        )
+        capability_mismatch = evaluate(envelope, authorities, capabilities=["DEPLOYMENT"])
         self.assertEqual(capability_mismatch["reason"], "capability_scope_mismatch")
         self.assertFalse(capability_mismatch["admitted"])
         self.assertEqual(capability_mismatch["execution_authority"], "NONE")
 
     def test_expired_and_future_decisions_fail_closed(self):
-        decision = allow_decision()
-        expired = evaluate_warden_admission(decision, QUALIFIED, "PROVIDER-RAILWAY-001", ["APPLICATION_RUNTIME"],
-                                            now=datetime(2026, 10, 6, 16, 0, tzinfo=timezone.utc))
+        _, authorities, envelope = signed_fixture()
+        expired = evaluate(envelope, authorities, now=datetime(2026, 10, 6, 16, 0, tzinfo=timezone.utc))
         self.assertEqual(expired["reason"], "warden_decision_expired")
         self.assertFalse(expired["admitted"])
-        self.assertEqual(expired["execution_authority"], "NONE")
-        future = evaluate_warden_admission(decision, QUALIFIED, "PROVIDER-RAILWAY-001", ["APPLICATION_RUNTIME"],
-                                           now=datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc))
+        future = evaluate(envelope, authorities, now=datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc))
         self.assertEqual(future["reason"], "warden_decision_not_yet_valid")
         self.assertFalse(future["admitted"])
-        self.assertEqual(future["execution_authority"], "NONE")
 
     def test_qualification_binding_mismatch_fails_closed(self):
-        decision = allow_decision()
-        decision["qualification_binding"]["qualification_result_digest"] = "sha256:" + "0" * 64
-        result = evaluate_warden_admission(decision, QUALIFIED, "PROVIDER-RAILWAY-001", ["APPLICATION_RUNTIME"], now=NOW)
+        private, authorities, envelope = signed_fixture()
+        envelope["signed_claim"]["qualification_binding"]["qualification_result_digest"] = "sha256:" + "0" * 64
+        envelope["signature_b64"] = base64.b64encode(
+            private.sign(canonical_json(envelope["signed_claim"]))
+        ).decode()
+        result = evaluate(envelope, authorities)
         self.assertEqual(result["reason"], "qualification_binding_mismatch")
         self.assertFalse(result["admitted"])
-        self.assertEqual(result["execution_authority"], "NONE")
 
     def test_malformed_decision_fails_closed(self):
-        decision = allow_decision()
-        decision["capability_scope"] = [{"bad": "value"}]
-        result = evaluate_warden_admission(decision, QUALIFIED, "PROVIDER-RAILWAY-001", ["APPLICATION_RUNTIME"], now=NOW)
+        _, authorities, envelope = signed_fixture()
+        envelope["signed_claim"]["capability_scope"] = [{"bad": "value"}]
+        result = evaluate(envelope, authorities)
         self.assertEqual(result["reason"], "invalid_warden_decision")
         self.assertFalse(result["admitted"])
         self.assertEqual(result["execution_authority"], "NONE")
