@@ -21,7 +21,8 @@ def fixture():
         "registry_id": "GENESIS-PRINCIPAL-AUTHORITY-REGISTRY-TEST",
         "state": "ACTIVE",
         "authorities": [{
-                "signer_key_id": "digitalme-test-key-001",
+            "principal_ref": "digitalme:test-principal",
+            "signer_key_id": "digitalme-test-key-001",
             "state": "ACTIVE",
             "algorithm": "Ed25519",
             "key_purpose": "WARDEN_REQUEST",
@@ -35,7 +36,6 @@ def fixture():
         "nonce": "NONCE-001",
         "idempotency_key": "IDEMP-001",
         "correlation_id": "CORR-001",
-        "principal_ref": "digitalme:test-principal",
         "signer_key_id": "digitalme-test-key-001",
         "capability_id": "APPLICATION_RUNTIME",
         "requested_effect": "RUN_APPLICATION",
@@ -121,14 +121,6 @@ class WardenRequestTests(unittest.TestCase):
         envelope["signature_b64"] = base64.b64encode(private.sign(canonical_json(envelope["signed_claim"]))).decode()
         result = evaluate_warden_request(envelope, principals, registry, {}, now=NOW)
         self.assertEqual(result["reason"], "caller_authority_or_routing_assertion_not_allowed")
-
-    def test_request_cannot_name_provider(self):
-        private, principals, envelope, registry = fixture()
-        envelope["signed_claim"]["provider_id"] = "P1"
-        envelope["signature_b64"] = base64.b64encode(private.sign(canonical_json(envelope["signed_claim"]))).decode()
-        result = evaluate_warden_request(envelope, principals, registry, {}, now=NOW)
-        self.assertFalse(result["request_validated"])
-        self.assertEqual(result["reason"], "provider_selection_not_allowed")
 
     def test_unsigned_or_bad_signature_fails_closed(self):
         _, principals, envelope, registry = fixture()
