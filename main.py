@@ -45,7 +45,7 @@ class GenesisHandler(BaseHTTPRequestHandler):
             return
         try:
             payload = json.loads(self.rfile.read(length))
-        except (json.JSONDecodeError, UnicodeDecodeError):
+        except (json.JSONDecodeError, UnicodeDecodeError, RecursionError):
             self._write_json(400, {"error": "invalid_json"})
             return
         status, response = build_action_response("POST", path, os.environ, payload)
