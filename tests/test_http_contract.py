@@ -75,8 +75,28 @@ class GenesisHttpContractTests(unittest.TestCase):
         self.assertFalse(payload["admitted"])
         self.assertEqual(payload["admission_state"], "NOT_ADMITTED")
         self.assertEqual(payload["execution_authority"], "NONE")
+        self.assertTrue(payload["projection_only"])
+        self.assertFalse(payload["request_evaluation"])
 
-    def test_warden_admission_endpoint_maps_malformed_decision_to_503(self):
+    def test_warden_admission_projection_uses_signed_claim_scope(self):
+        qualification = {"provider_id": "P1"}
+        providers = {"providers": [{"provider_id": "P1", "state": "REGISTERED", "endpoint_binding_env": None}]}
+        decision = {"signed_claim": {"capability_scope": ["APPLICATION_RUNTIME"]}}
+        projected = {"admitted": False, "admission_state": "NOT_ADMITTED", "execution_authority": "NONE"}
+        with patch("genesis_http.load_qualification", return_value=qualification), \
+             patch("genesis_http.load_registry", return_value=providers), \
+             patch("genesis_http.load_authority_registry", return_value={}), \
+             patch("genesis_http.load_attestation", return_value=None), \
+             patch("genesis_http.evaluate_attestation", return_value={"qualified": True, "capability_scope": ["APPLICATION_RUNTIME"]}), \
+             patch("genesis_http.load_warden_decision", return_value=decision), \
+             patch("genesis_http.load_warden_authority_registry", return_value={}), \
+             patch("genesis_http.evaluate_warden_admission", return_value=projected) as evaluate:
+            status, payload = build_response("/v1/genesis/warden-admission", {})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload, projected)
+        self.assertEqual(evaluate.call_args.args[3], ["APPLICATION_RUNTIME"])
+
+    def test_warden_admission_endpoint_fails_closed_for_malformed_decision(self):
         import tempfile
         from pathlib import Path
         with tempfile.TemporaryDirectory() as td:
