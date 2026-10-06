@@ -66,32 +66,44 @@ class WardenAdmissionTests(unittest.TestCase):
 
     def test_provider_and_capability_mismatch_fail_closed(self):
         decision = allow_decision()
-        self.assertEqual(
-            evaluate_warden_admission(decision, QUALIFIED, "OTHER", ["APPLICATION_RUNTIME"], now=NOW)["reason"],
-            "provider_scope_mismatch",
+        provider_mismatch = evaluate_warden_admission(
+            decision, QUALIFIED, "OTHER", ["APPLICATION_RUNTIME"], now=NOW
         )
-        self.assertEqual(
-            evaluate_warden_admission(decision, QUALIFIED, "PROVIDER-RAILWAY-001", ["DEPLOYMENT"], now=NOW)["reason"],
-            "capability_scope_mismatch",
+        self.assertEqual(provider_mismatch["reason"], "provider_scope_mismatch")
+        self.assertFalse(provider_mismatch["admitted"])
+        self.assertEqual(provider_mismatch["execution_authority"], "NONE")
+        capability_mismatch = evaluate_warden_admission(
+            decision, QUALIFIED, "PROVIDER-RAILWAY-001", ["DEPLOYMENT"], now=NOW
         )
+        self.assertEqual(capability_mismatch["reason"], "capability_scope_mismatch")
+        self.assertFalse(capability_mismatch["admitted"])
+        self.assertEqual(capability_mismatch["execution_authority"], "NONE")
 
     def test_expired_and_future_decisions_fail_closed(self):
         decision = allow_decision()
         expired = evaluate_warden_admission(decision, QUALIFIED, "PROVIDER-RAILWAY-001", ["APPLICATION_RUNTIME"],
                                             now=datetime(2026, 10, 6, 16, 0, tzinfo=timezone.utc))
         self.assertEqual(expired["reason"], "warden_decision_expired")
+        self.assertFalse(expired["admitted"])
+        self.assertEqual(expired["execution_authority"], "NONE")
         future = evaluate_warden_admission(decision, QUALIFIED, "PROVIDER-RAILWAY-001", ["APPLICATION_RUNTIME"],
                                            now=datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc))
         self.assertEqual(future["reason"], "warden_decision_not_yet_valid")
+        self.assertFalse(future["admitted"])
+        self.assertEqual(future["execution_authority"], "NONE")
 
     def test_qualification_binding_mismatch_fails_closed(self):
         decision = allow_decision()
         decision["qualification_binding"]["qualification_result_digest"] = "sha256:" + "0" * 64
         result = evaluate_warden_admission(decision, QUALIFIED, "PROVIDER-RAILWAY-001", ["APPLICATION_RUNTIME"], now=NOW)
         self.assertEqual(result["reason"], "qualification_binding_mismatch")
+        self.assertFalse(result["admitted"])
+        self.assertEqual(result["execution_authority"], "NONE")
 
     def test_malformed_decision_fails_closed(self):
         decision = allow_decision()
         decision["capability_scope"] = [{"bad": "value"}]
         result = evaluate_warden_admission(decision, QUALIFIED, "PROVIDER-RAILWAY-001", ["APPLICATION_RUNTIME"], now=NOW)
         self.assertEqual(result["reason"], "invalid_warden_decision")
+        self.assertFalse(result["admitted"])
+        self.assertEqual(result["execution_authority"], "NONE")
