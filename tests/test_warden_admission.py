@@ -1,13 +1,15 @@
 import base64
 import copy
 import unittest
+import json
+from pathlib import Path
 from datetime import datetime, timezone
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from genesis_warden_admission import (
-    canonical_json, decision_digest, evaluate_warden_admission,
+    canonical_json, decision_digest, evaluate_warden_admission, provider_pre_admission_check,
 )
 
 NOW = datetime(2026, 10, 6, 14, 0, tzinfo=timezone.utc)
@@ -84,6 +86,30 @@ def evaluate(envelope, authorities, qualification=QUALIFIED, provider_id="PROVID
 
 
 class WardenAdmissionTests(unittest.TestCase):
+    def test_provider_pre_admission_blocks_suspension_retirement_and_missing_binding(self):
+        registry = json.loads(Path("config/provider_registry.json").read_text())
+        provider = registry["providers"][0]
+        allowed, reason = provider_pre_admission_check(registry, provider["provider_id"], {})
+        self.assertTrue(allowed)
+        self.assertEqual(reason, "provider_ready_for_warden_evaluation")
+        provider["state"] = "SUSPENDED"
+        self.assertEqual(provider_pre_admission_check(registry, provider["provider_id"], {}), (False, "provider_suspended"))
+        provider["state"] = "RETIRED"
+        self.assertEqual(provider_pre_admission_check(registry, provider["provider_id"], {}), (False, "provider_retired"))
+        provider["state"] = "REGISTERED"
+        provider["endpoint_binding_env"] = "TEST_PROVIDER_URL"
+        self.assertEqual(provider_pre_admission_check(registry, provider["provider_id"], {}), (False, "provider_binding_missing"))
+
+    def test_timestamp_overflow_is_invalid_decision(self):
+        private, authorities, envelope = signed_fixture()
+        envelope["signed_claim"]["issued_at"] = "0001-01-01T00:00:00+23:59"
+        envelope["signature_b64"] = base64.b64encode(
+            private.sign(canonical_json(envelope["signed_claim"]))
+        ).decode()
+        result = evaluate(envelope, authorities)
+        self.assertFalse(result["admitted"])
+        self.assertEqual(result["reason"], "invalid_warden_decision")
+
     def test_no_decision_is_not_admitted(self):
         _, authorities, _ = signed_fixture()
         result = evaluate(None, authorities)
