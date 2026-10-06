@@ -5,7 +5,7 @@ from genesis_capability_registry import load_registry, registry_projection
 from genesis_qualification import load_qualification, evaluate_qualification, QualificationError
 from genesis_qualification_authority import load_authority_registry, load_attestation, evaluate_attestation, authority_projection, AuthorityError
 from genesis_contract import db_target_from_env, service_status
-from genesis_warden_admission import load_warden_decision, load_warden_authority_registry, evaluate_warden_admission, WardenAdmissionError
+from genesis_warden_admission import load_warden_decision, load_warden_authority_registry, evaluate_warden_admission, provider_pre_admission_check, not_admitted_projection, WardenAdmissionError
 from genesis_runtime import runtime_projection
 
 Probe = Callable[[str, int], bool]
@@ -62,6 +62,9 @@ def build_response(path: str, env: Mapping[str, str], probe: Probe = tcp_probe) 
             decision = load_warden_decision(env)
             warden_authorities = load_warden_authority_registry(env)
             provider_id = qualification.get("provider_id")
+            provider_ready, provider_reason = provider_pre_admission_check(providers, provider_id, env)
+            if not provider_ready:
+                return 200, not_admitted_projection(provider_reason)
             capability_scope = (
                 decision.get("capability_scope", []) if isinstance(decision, dict)
                 else qualification_result.get("capability_scope", [])
