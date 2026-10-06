@@ -102,7 +102,7 @@ class WardenRequestTests(unittest.TestCase):
         envelope["provider_id"] = "P1"
         result = evaluate_warden_request(envelope, principals, registry, {}, now=NOW)
         self.assertFalse(result["request_validated"])
-        self.assertEqual(result["reason"], "invalid_warden_request")
+         self.assertEqual(result["reason"], "invalid_warden_request")
 
     def test_whitespace_replay_identifiers_are_rejected(self):
         private, principals, envelope, registry = fixture()
@@ -139,13 +139,27 @@ class WardenRequestTests(unittest.TestCase):
         result = evaluate_warden_request(envelope, principals, registry, {}, now=NOW)
         self.assertEqual(result["reason"], "caller_authority_or_routing_assertion_not_allowed")
 
-    def test_non_string_request_id_fails_closed_without_projection_exception(self):
+    def test_provider_selector_alias_hidden_in_nested_constraints_is_rejected(self):
         private, principals, envelope, registry = fixture()
-        envelope["signed_claim"]["request_id"] = 1
+        envelope["signed_claim"]["constraints"]["ProviderSelector"] = "P1"
+        envelope["signature_b64"] = base64.b64encode(private.sign(canonical_json(envelope["signed_claim"]))).decode()
+        result = evaluate_warden_request(envelope, principals, registry, {}, now=NOW)
+        self.assertEqual(result["reason"], "caller_authority_or_routing_assertion_not_allowed")
+
+    def test_unrecognized_claim_authority_assertions_are_rejected(self):
+        private, principals, envelope, registry = fixture()
+        envelope["signed_claim"]["principal"] = "digitalme:claimed"
         envelope["signature_b64"] = base64.b64encode(private.sign(canonical_json(envelope["signed_claim"]))).decode()
         result = evaluate_warden_request(envelope, principals, registry, {}, now=NOW)
         self.assertFalse(result["request_validated"])
-        self.assertEqual(result["reason"], "invalid_warden_request")
+        self.assertNotEqual(result["request_state"], "VALIDATED_NOT_DISPATCHED")
+
+    def test_malformed_identifier_types_reject_without_projection_error(self):
+        _, principals, envelope, registry = fixture()
+        envelope["signed_claim"]["request_id"] = 123
+        result = evaluate_warden_request(envelope, principals, registry, {}, now=NOW)
+        self.assertFalse(result["request_validated"])
+       self.assertEqual(result["reason"], "invalid_warden_request")
         self.assertIsNone(result["intent_ref"])
 
     def test_unsigned_or_bad_signature_fails_closed(self):

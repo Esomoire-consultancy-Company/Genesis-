@@ -48,11 +48,22 @@ class GenesisHandler(BaseHTTPRequestHandler):
         if path != "/v1/genesis/warden-request":
             self._write_json(404, {"error": "not_found"})
             return
+        if self.headers.get("Transfer-Encoding") is not None:
+            self._write_json(400, {"error": "invalid_transfer_encoding"})
+            return
         if self.headers.get_content_type() != "application/json":
             self._write_json(415, {"error": "unsupported_media_type"})
             return
+        content_lengths = self.headers.get_all("Content-Length", [])
+        if len(content_lengths) != 1:
+            self._write_json(400, {"error": "invalid_content_length"})
+            return
+        content_length = content_lengths[0]
+        if not content_length.isascii() or not content_length.isdecimal():
+            self._write_json(400, {"error": "invalid_content_length"})
+            return
         try:
-            length = int(self.headers.get("Content-Length", "0"))
+            length = int(content_length)
         except ValueError:
             self._write_json(400, {"error": "invalid_content_length"})
             return
@@ -61,7 +72,11 @@ class GenesisHandler(BaseHTTPRequestHandler):
             return
         try:
             self.connection.settimeout(REQUEST_READ_TIMEOUT_SECONDS)
-            payload = json.loads(self.rfile.read(length))
+            payload = json.loads(
+                self.rfile.read(length),
+                object_pairs_hook=self._reject_duplicate_json_keys,
+                parse_constant=self._reject_json_constant,
+            )
         except socket.timeout:
             self._write_json(408, {"error": "request_timeout"})
             return
@@ -73,6 +88,19 @@ class GenesisHandler(BaseHTTPRequestHandler):
             return
         status, response = build_action_response("POST", path, os.environ, payload)
         self._write_json(status, response)
+
+    @staticmethod
+    def _reject_duplicate_json_keys(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate JSON object key")
+            result[key] = value
+        return result
+
+    @staticmethod
+    def _reject_json_constant(value):
+        raise ValueError(f"invalid JSON constant: {value}")
 
     def _unsupported_action_method(self, method):
         path = urlparse(self.path).path

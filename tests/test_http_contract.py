@@ -1,11 +1,31 @@
 import unittest
+from http.client import HTTPConnection
+from http.server import ThreadingHTTPServer
+from threading import Thread
 from unittest.mock import patch
 
 from genesis_http import build_response, build_action_response
+from main import GenesisHandler
 from genesis_warden_request import WardenRequestError
 
 
 class GenesisHttpContractTests(unittest.TestCase):
+    def _request_handler(self, method, body=None, headers=None):
+        server = ThreadingHTTPServer(("127.0.0.1", 0), GenesisHandler)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            connection = HTTPConnection("127.0.0.1", server.server_port, timeout=2)
+            connection.request(method, "/v1/genesis/warden-request", body=body, headers=headers or {})
+            response = connection.getresponse()
+            result = response.status, response.read()
+            connection.close()
+            return result
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
     def test_health_is_independent_of_database(self):
         status, payload = build_response("/health", {}, lambda host, port: False)
         self.assertEqual(status, 200)
@@ -150,6 +170,27 @@ class GenesisHttpContractTests(unittest.TestCase):
         status, payload = build_action_response("POST", "/missing", {}, {})
         self.assertEqual(status, 404)
         self.assertEqual(payload["error"], "not_found")
+
+    def test_warden_request_http_methods_are_rejected_at_handler(self):
+        for method in ("GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS"):
+            with self.subTest(method=method):
+                status, _ = self._request_handler(method)
+                self.assertEqual(status, 405)
+
+    def test_warden_request_http_rejects_ambiguous_or_nonstandard_json(self):
+        headers = {"Content-Type": "application/json"}
+        for body in (b'{"schema_version":"a","schema_version":"b"}', b'{"value":NaN}'):
+            with self.subTest(body=body):
+                status, _ = self._request_handler("POST", body=body, headers=headers)
+                self.assertEqual(status, 400)
+
+    def test_warden_request_http_rejects_transfer_encoding(self):
+        status, _ = self._request_handler(
+            "POST",
+            body=b"{}",
+            headers={"Content-Type": "application/json", "Transfer-Encoding": "chunked"},
+        )
+        self.assertEqual(status, 400)
 
     def test_unknown_route_returns_404(self):
         status, payload = build_response("/missing", {}, lambda host, port: False)

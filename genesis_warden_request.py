@@ -16,10 +16,22 @@ KEY_PURPOSE = "WARDEN_REQUEST"
 
 FORBIDDEN_CALLER_KEYS = {
     "provider", "provider_id", "provider_name", "provider_ref", "selected_provider",
-    "route_ref", "executor_ref", "target_warden_ref", "warden_id", "warden_ref",
-    "principal_ref", "principal_id", "authority_ref", "authority_decision_id",
-    "decision_ref", "warden_decision_ref", "grant_ref", "consent_ref",
+    "provider_selector", "provider_endpoint", "provider_route", "target_provider",
+    "route_ref", "executor_ref", "target_warden_ref", "warden", "warden_id", "warden_ref",
+    "warden_decision", "warden_decision_id", "principal", "principal_ref", "principal_id",
+    "authority", "authority_id", "authority_ref", "authority_decision_id", "decision_ref",
+    "warden_decision_ref", "grant_ref", "consent_ref",
     "allowed", "admitted", "execution_authorized", "authorization_issuer",
+}
+NORMALIZED_FORBIDDEN_CALLER_KEYS = {
+    "".join(character for character in key.casefold() if character.isalnum())
+    for key in FORBIDDEN_CALLER_KEYS
+}
+
+CLAIM_KEYS = {
+    "signing_domain", "request_id", "nonce", "idempotency_key", "correlation_id",
+    "signer_key_id", "capability_id", "requested_effect", "purpose_ref", "constraints",
+    "evidence_required", "issued_at", "expires_at",
 }
 
 
@@ -49,7 +61,12 @@ def _parse_time(value):
 
 def _contains_forbidden_key(value):
     if isinstance(value, dict):
-        if FORBIDDEN_CALLER_KEYS.intersection(value):
+        if any(
+            isinstance(key, str)
+            and "".join(character for character in key.casefold() if character.isalnum())
+            in NORMALIZED_FORBIDDEN_CALLER_KEYS
+            for key in value
+        ):
             return True
         return any(_contains_forbidden_key(item) for item in value.values())
     if isinstance(value, list):
@@ -117,9 +134,11 @@ def load_principal_authority_registry(env, default_path="config/principal_author
 
 
 def validate_warden_request(envelope):
-    if not isinstance(envelope, dict) or envelope.get("schema_version") != REQUEST_SCHEMA:
-        raise WardenRequestError("INVALID_WARDEN_REQUEST")
-    if set(envelope) != {"schema_version", "signed_claim", "signature_b64"}:
+    if (
+        not isinstance(envelope, dict)
+        or set(envelope) != {"schema_version", "signed_claim", "signature_b64"}
+        or envelope.get("schema_version") != REQUEST_SCHEMA
+    ):
         raise WardenRequestError("INVALID_WARDEN_REQUEST")
     claim = envelope.get("signed_claim")
     signature = envelope.get("signature_b64")
@@ -127,6 +146,8 @@ def validate_warden_request(envelope):
         raise WardenRequestError("INVALID_WARDEN_REQUEST")
     if _contains_forbidden_key(claim):
         raise WardenRequestError("CALLER_AUTHORITY_OR_ROUTING_ASSERTION_NOT_ALLOWED")
+    if set(claim) != CLAIM_KEYS:
+        raise WardenRequestError("INVALID_WARDEN_REQUEST")
 
     required = (
         "signing_domain", "request_id", "nonce", "idempotency_key", "correlation_id",
@@ -169,14 +190,17 @@ def _scope_allows(values, requested):
 
 def request_projection(reason, claim=None, principal_ref=None):
     claim = claim if isinstance(claim, dict) else {}
+    request_id = claim.get("request_id")
+    idempotency_key = claim.get("idempotency_key")
+    correlation_id = claim.get("correlation_id")
     return {
         "schema_version": REQUEST_SCHEMA,
         "request_validated": False,
         "request_state": "REJECTED",
         "reason": reason,
-        "intent_ref": ("warden-request:" + claim["request_id"]) if isinstance(claim.get("request_id"), str) and claim["request_id"].strip() else None,
-        "idempotency_key": claim.get("idempotency_key"),
-        "correlation_id": claim.get("correlation_id"),
+        "intent_ref": ("warden-request:" + request_id) if isinstance(request_id, str) and request_id else None,
+        "idempotency_key": idempotency_key if isinstance(idempotency_key, str) else None,
+        "correlation_id": correlation_id if isinstance(correlation_id, str) else None,
         "request_digest": request_digest(claim) if claim else None,
         "principal_ref": principal_ref,
         "capability_id": claim.get("capability_id"),
