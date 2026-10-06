@@ -86,8 +86,11 @@ class GenesisHttpContractTests(unittest.TestCase):
                 "/v1/genesis/warden-admission",
                 {"GENESIS_WARDEN_DECISION_PATH": str(p)},
             )
-        self.assertEqual(status, 503)
-        self.assertEqual(payload["status"], "warden_admission_unavailable")
+        self.assertEqual(status, 200)
+        self.assertFalse(payload["admitted"])
+        self.assertEqual(payload["admission_state"], "NOT_ADMITTED")
+        self.assertEqual(payload["reason"], "invalid_warden_decision")
+        self.assertEqual(payload["execution_authority"], "NONE")
 
     def test_unknown_route_returns_404(self):
         status, payload = build_response("/missing", {}, lambda host, port: False)
