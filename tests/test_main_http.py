@@ -54,6 +54,16 @@ class GenesisServerIngressTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertEqual(payload["error"], "invalid_json")
 
+    def test_overlong_json_integer_returns_400(self):
+        status, payload = self._request_once(
+            "POST",
+            "/v1/genesis/warden-request",
+            body="9" * 5000,
+            headers={"Content-Type": "application/json"},
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(payload["error"], "invalid_json")
+
     def test_get_warden_request_is_method_not_allowed(self):
         status, payload = self._request_once("GET", "/v1/genesis/warden-request")
         self.assertEqual(status, 405)
