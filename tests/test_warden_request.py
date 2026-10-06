@@ -97,6 +97,22 @@ class WardenRequestTests(unittest.TestCase):
             self.assertFalse(result["request_validated"], field)
             self.assertEqual(result["reason"], "invalid_warden_request", field)
 
+    def test_unsigned_outer_envelope_metadata_is_rejected(self):
+        _, principals, envelope, registry = fixture()
+        envelope["provider_id"] = "P1"
+        result = evaluate_warden_request(envelope, principals, registry, {}, now=NOW)
+        self.assertFalse(result["request_validated"])
+        self.assertEqual(result["reason"], "invalid_warden_request")
+
+    def test_whitespace_replay_identifiers_are_rejected(self):
+        private, principals, envelope, registry = fixture()
+        for field in ("nonce", "idempotency_key", "correlation_id"):
+            broken = copy.deepcopy(envelope)
+            broken["signed_claim"][field] = "   "
+            broken["signature_b64"] = base64.b64encode(private.sign(canonical_json(broken["signed_claim"]))).decode()
+            result = evaluate_warden_request(broken, principals, registry, {}, now=NOW)
+            self.assertEqual(result["reason"], "invalid_warden_request", field)
+
     def test_request_cannot_assert_provider_warden_principal_or_authority(self):
         private, principals, envelope, registry = fixture()
         forbidden = (
