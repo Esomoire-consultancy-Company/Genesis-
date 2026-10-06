@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,6 +29,10 @@ class WardenRequestError(ValueError):
 
 def canonical_json(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+
+def request_digest(claim):
+    return "sha256:" + hashlib.sha256(canonical_json(claim)).hexdigest()
 
 
 def _parse_time(value):
@@ -170,6 +175,7 @@ def request_projection(reason, claim=None, principal_ref=None):
         "intent_ref": ("warden-request:" + claim["request_id"]) if claim.get("request_id") else None,
         "idempotency_key": claim.get("idempotency_key"),
         "correlation_id": claim.get("correlation_id"),
+        "request_digest": request_digest(claim) if claim else None,
         "principal_ref": principal_ref,
         "capability_id": claim.get("capability_id"),
         "requested_effect": claim.get("requested_effect"),
