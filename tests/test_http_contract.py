@@ -69,6 +69,26 @@ class GenesisHttpContractTests(unittest.TestCase):
         self.assertEqual(payload["status"], "qualification_authority_unavailable")
         self.assertEqual(payload["error"], "INVALID_AUTHORITY_REGISTRY")
 
+    def test_warden_admission_endpoint_defaults_to_not_admitted(self):
+        status, payload = build_response("/v1/genesis/warden-admission", {})
+        self.assertEqual(status, 200)
+        self.assertFalse(payload["admitted"])
+        self.assertEqual(payload["admission_state"], "NOT_ADMITTED")
+        self.assertEqual(payload["execution_authority"], "NONE")
+
+    def test_warden_admission_endpoint_maps_malformed_decision_to_503(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "bad-decision.json"
+            p.write_text('{"schema_version":"wrong"}', encoding="utf-8")
+            status, payload = build_response(
+                "/v1/genesis/warden-admission",
+                {"GENESIS_WARDEN_DECISION_PATH": str(p)},
+            )
+        self.assertEqual(status, 503)
+        self.assertEqual(payload["status"], "warden_admission_unavailable")
+
     def test_unknown_route_returns_404(self):
         status, payload = build_response("/missing", {}, lambda host, port: False)
         self.assertEqual(status, 404)
