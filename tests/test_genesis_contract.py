@@ -5,11 +5,11 @@ from genesis_runtime import provider_effect_admission, runtime_projection
 
 
 class GenesisContractTests(unittest.TestCase):
-    def test_service_status_declares_r05_as_additive(self):
+    def test_service_status_declares_r06_as_additive(self):
         status = service_status()
         self.assertEqual(status["service"], "genesis")
-        self.assertEqual(status["phase"], "provider-qualification-observation")
-        self.assertEqual(status["version"], "0.5.0")
+        self.assertEqual(status["phase"], "qualification-authority-and-warden-admission-contract")
+        self.assertEqual(status["version"], "0.6.0")
         for capability in (
             "runtime-projection",
             "provider-binding-resolution",
@@ -19,6 +19,9 @@ class GenesisContractTests(unittest.TestCase):
             "dependency-exit-metadata",
             "warden-admission-projection",
             "provider-qualification-evaluation",
+            "qualification-authority-registry",
+            "ed25519-qualification-attestation-verification",
+            "warden-qualification-eligibility-projection",
         ):
             self.assertIn(capability, status["capabilities"])
 
