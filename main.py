@@ -7,6 +7,20 @@ from genesis_http import build_response, build_action_response
 
 
 MAX_REQUEST_BYTES = 65536
+MAX_JSON_DEPTH = 64
+
+
+def _json_depth_exceeds(value, limit=MAX_JSON_DEPTH):
+    stack = [(value, 1)]
+    while stack:
+        current, depth = stack.pop()
+        if depth > limit:
+            return True
+        if isinstance(current, dict):
+            stack.extend((item, depth + 1) for item in current.values())
+        elif isinstance(current, list):
+            stack.extend((item, depth + 1) for item in current)
+    return False
 
 
 class GenesisHandler(BaseHTTPRequestHandler):
@@ -46,6 +60,9 @@ class GenesisHandler(BaseHTTPRequestHandler):
         try:
             payload = json.loads(self.rfile.read(length))
         except (json.JSONDecodeError, UnicodeDecodeError, RecursionError):
+            self._write_json(400, {"error": "invalid_json"})
+            return
+        if _json_depth_exceeds(payload):
             self._write_json(400, {"error": "invalid_json"})
             return
         status, response = build_action_response("POST", path, os.environ, payload)
