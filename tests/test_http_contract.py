@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch
 
 from genesis_http import build_response, build_action_response
+from genesis_warden_request import WardenRequestError
 
 
 class GenesisHttpContractTests(unittest.TestCase):
@@ -129,6 +130,18 @@ class GenesisHttpContractTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(payload, projected)
         self.assertEqual(evaluate.call_args.args[0], envelope)
+
+    def test_warden_request_dependency_failure_is_503(self):
+        with patch(
+            "genesis_http.load_principal_authority_registry",
+            side_effect=WardenRequestError("INVALID_PRINCIPAL_AUTHORITY_REGISTRY"),
+        ):
+            status, payload = build_action_response(
+                "POST", "/v1/genesis/warden-request", {}, {}
+            )
+        self.assertEqual(status, 503)
+        self.assertEqual(payload["status"], "warden_request_unavailable")
+        self.assertEqual(payload["error"], "INVALID_PRINCIPAL_AUTHORITY_REGISTRY")
 
     def test_warden_request_rejects_wrong_method_and_route(self):
         status, payload = build_action_response("GET", "/v1/genesis/warden-request", {}, {})
