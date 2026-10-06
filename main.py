@@ -14,7 +14,10 @@ class GenesisHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = urlparse(self.path).path
-        status, payload = build_response(path, os.environ)
+        if path == "/v1/genesis/warden-request":
+            status, payload = build_action_response("GET", path, os.environ, {})
+        else:
+            status, payload = build_response(path, os.environ)
         body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
 
         self.send_response(status)
@@ -47,6 +50,33 @@ class GenesisHandler(BaseHTTPRequestHandler):
             return
         status, response = build_action_response("POST", path, os.environ, payload)
         self._write_json(status, response)
+
+    def _unsupported_action_method(self, method):
+        path = urlparse(self.path).path
+        status, payload = build_action_response(method, path, os.environ, {})
+        self._write_json(status, payload)
+
+    def do_PUT(self):
+        self._unsupported_action_method("PUT")
+
+    def do_PATCH(self):
+        self._unsupported_action_method("PATCH")
+
+    def do_DELETE(self):
+        self._unsupported_action_method("DELETE")
+
+    def do_OPTIONS(self):
+        self._unsupported_action_method("OPTIONS")
+
+    def do_HEAD(self):
+        path = urlparse(self.path).path
+        status, payload = build_action_response("HEAD", path, os.environ, {})
+        body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
 
     def _write_json(self, status, payload):
         body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
