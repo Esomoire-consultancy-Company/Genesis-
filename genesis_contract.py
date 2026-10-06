@@ -3,8 +3,8 @@ from genesis_runtime import DatabaseTarget, db_target_from_env
 def service_status() -> dict:
     return {
         "service": "genesis",
-        "version": "0.6.0",
-        "phase": "qualification-authority-and-warden-admission-contract",
+        "version": "0.7.0",
+        "phase": "warden-admission-decision-contract",
         "capabilities": [
             "registry", "health", "readiness", "runtime-projection",
             "provider-binding-resolution", "capability-registry",
@@ -13,6 +13,7 @@ def service_status() -> dict:
             "provider-qualification-evaluation", "qualification-authority-registry",
             "ed25519-qualification-attestation-verification",
             "warden-qualification-eligibility-projection",
+            "warden-admission-decision-evaluation", "scoped-admission-projection",
         ],
     }
 
