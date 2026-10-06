@@ -16,6 +16,10 @@ class QualificationError(ValueError):
     pass
 
 def evaluate_qualification(record, registry):
+    if not isinstance(record, dict):
+        raise QualificationError("QUALIFICATION_RECORD_MUST_BE_OBJECT")
+    if not isinstance(registry, dict) or not isinstance(registry.get("providers"), list):
+        raise QualificationError("INVALID_PROVIDER_REGISTRY")
     if record.get("schema_version") != SCHEMA:
         raise QualificationError("INVALID_QUALIFICATION_SCHEMA")
     if not isinstance(record.get("checks"), dict):
@@ -40,6 +44,7 @@ def evaluate_qualification(record, registry):
         profile_results[profile] = (
             "PASS" if all(v == "PASS" for v in values)
             else "FAIL" if "FAIL" in values
+            else "INCONCLUSIVE" if "INCONCLUSIVE" in values
             else "INCOMPLETE"
         )
     all_pass = all(v == "PASS" for v in profile_results.values())

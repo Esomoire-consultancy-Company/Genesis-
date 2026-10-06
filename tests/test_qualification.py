@@ -49,3 +49,22 @@ class QualificationTests(unittest.TestCase):
         self.assertFalse(response["qualified"])
     def test_legacy_health(self):
         self.assertEqual(build_response("/health", {})[0], 200)
+
+    def test_non_object_record_fails_closed(self):
+        with self.assertRaisesRegex(QualificationError, "QUALIFICATION_RECORD_MUST_BE_OBJECT"):
+            evaluate_qualification([], REGISTRY)
+
+    def test_inconclusive_is_not_collapsed_into_incomplete(self):
+        record = copy.deepcopy(RECORD)
+        record["checks"]["principal_binding"]["result"] = "INCONCLUSIVE"
+        result = evaluate_qualification(record, REGISTRY)
+        self.assertEqual(result["qualification_profile_results"]["C1"], "INCONCLUSIVE")
+
+    def test_http_reports_specific_qualification_error(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "bad.json"
+            p.write_text("[]", encoding="utf-8")
+            status, response = build_response("/v1/genesis/qualification", {"GENESIS_QUALIFICATION_PATH": str(p)})
+            self.assertEqual(status, 503)
+            self.assertEqual(response["error"], "QUALIFICATION_RECORD_MUST_BE_OBJECT")

@@ -36,9 +36,9 @@ def build_response(path: str, env: Mapping[str, str], probe: Probe = tcp_probe) 
 
     if path == "/v1/genesis/qualification":
         try:
-            return 200, evaluate_qualification(load_qualification(env), load_registry(env))
+            return 200, evaluate_qualification(load_qualification(env), load_registry(env, default_path="config/provider_registry.json"))
         except (ValueError, OSError, QualificationError) as exc:
-            return 503, {"status": "qualification_unavailable", "error": type(exc).__name__}
+            return 503, {"status": "qualification_unavailable", "error": str(exc)}
 
     if path == "/ready":
         target = db_target_from_env(env)
