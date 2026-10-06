@@ -1,0 +1,6 @@
+{
+  "schema_version": "genesis.warden-authority-registry.r0.7",
+  "registry_id": "GENESIS-WARDEN-AUTHORITY-REGISTRY-001",
+  "state": "ACTIVE_EMPTY",
+  "authorities": []
+}
