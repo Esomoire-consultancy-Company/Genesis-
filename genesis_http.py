@@ -7,6 +7,7 @@ from genesis_qualification_authority import load_authority_registry, load_attest
 from genesis_contract import db_target_from_env, service_status
 from genesis_warden_admission import load_warden_decision, load_warden_authority_registry, evaluate_warden_admission, provider_pre_admission_check, not_admitted_projection, WardenAdmissionError
 from genesis_runtime import runtime_projection
+from genesis_warden_request import load_principal_authority_registry, evaluate_warden_request, WardenRequestError
 
 Probe = Callable[[str, int], bool]
 
@@ -90,3 +91,16 @@ def build_response(path: str, env: Mapping[str, str], probe: Probe = tcp_probe) 
         return 503, {"status": "not_ready", "database": "unreachable"}
 
     return 404, {"error": "not_found"}
+
+
+def build_action_response(method: str, path: str, env: Mapping[str, str], payload) -> Tuple[int, dict]:
+    if path != "/v1/genesis/warden-request":
+        return 404, {"error": "not_found"}
+    if method != "POST":
+        return 405, {"error": "method_not_allowed"}
+    try:
+        principals = load_principal_authority_registry(env)
+        registry = load_registry(env, default_path="config/provider_registry.json")
+        return 200, evaluate_warden_request(payload, principals, registry, env)
+    except (ValueError, OSError, WardenRequestError) as exc:
+        return 503, {"status": "warden_request_unavailable", "error": str(exc)}
