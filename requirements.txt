@@ -10,3 +10,4 @@ pydantic-settings>=2.7,<3
 tenacity>=9,<10
 prometheus-client>=0.21,<1
 PyJWT[crypto]>=2.10,<3
+cryptography>=43,<47

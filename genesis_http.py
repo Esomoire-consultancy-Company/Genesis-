@@ -3,6 +3,7 @@ from typing import Callable, Mapping, Tuple
 
 from genesis_capability_registry import load_registry, registry_projection
 from genesis_qualification import load_qualification, evaluate_qualification, QualificationError
+from genesis_qualification_authority import load_authority_registry, load_attestation, evaluate_attestation, authority_projection, AuthorityError
 from genesis_contract import db_target_from_env, service_status
 from genesis_runtime import runtime_projection
 
@@ -39,6 +40,16 @@ def build_response(path: str, env: Mapping[str, str], probe: Probe = tcp_probe) 
             return 200, evaluate_qualification(load_qualification(env), load_registry(env, default_path="config/provider_registry.json"))
         except (ValueError, OSError, QualificationError) as exc:
             return 503, {"status": "qualification_unavailable", "error": str(exc)}
+
+    if path == "/v1/genesis/qualification-authority":
+        try:
+            qualification = load_qualification(env)
+            providers = load_registry(env, default_path="config/provider_registry.json")
+            authorities = load_authority_registry(env)
+            attestation = load_attestation(env)
+            return 200, {"authority_registry": authority_projection(authorities), "provider_qualification": evaluate_attestation(attestation, qualification, providers, authorities)}
+        except (ValueError, OSError, QualificationError, AuthorityError) as exc:
+            return 503, {"status": "qualification_authority_unavailable", "error": str(exc)}
 
     if path == "/ready":
         target = db_target_from_env(env)
