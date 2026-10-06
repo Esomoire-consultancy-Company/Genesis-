@@ -65,8 +65,9 @@ def build_response(path: str, env: Mapping[str, str], probe: Probe = tcp_probe) 
             provider_ready, provider_reason = provider_pre_admission_check(providers, provider_id, env)
             if not provider_ready:
                 return 200, not_admitted_projection(provider_reason)
+            signed_claim = decision.get("signed_claim") if isinstance(decision, dict) else None
             capability_scope = (
-                decision.get("capability_scope", []) if isinstance(decision, dict)
+                signed_claim.get("capability_scope", []) if isinstance(signed_claim, dict)
                 else qualification_result.get("capability_scope", [])
             )
             return 200, evaluate_warden_admission(
