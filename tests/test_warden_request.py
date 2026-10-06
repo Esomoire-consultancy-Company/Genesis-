@@ -21,8 +21,7 @@ def fixture():
         "registry_id": "GENESIS-PRINCIPAL-AUTHORITY-REGISTRY-TEST",
         "state": "ACTIVE",
         "authorities": [{
-            "principal_ref": "digitalme:test-principal",
-            "signer_key_id": "digitalme-test-key-001",
+                "signer_key_id": "digitalme-test-key-001",
             "state": "ACTIVE",
             "algorithm": "Ed25519",
             "key_purpose": "WARDEN_REQUEST",
@@ -38,8 +37,6 @@ def fixture():
         "correlation_id": "CORR-001",
         "principal_ref": "digitalme:test-principal",
         "signer_key_id": "digitalme-test-key-001",
-        "origin_ref": "genesis:test-origin",
-        "target_warden_ref": "warden:test",
         "capability_id": "APPLICATION_RUNTIME",
         "requested_effect": "RUN_APPLICATION",
         "purpose_ref": "workflow:test",
@@ -87,16 +84,43 @@ class WardenRequestTests(unittest.TestCase):
         self.assertEqual(result["intent_ref"], "warden-request:REQ-001")
         self.assertEqual(result["idempotency_key"], "IDEMP-001")
         self.assertEqual(result["correlation_id"], "CORR-001")
+        self.assertEqual(result["principal_ref"], "digitalme:test-principal")
 
     def test_replay_and_correlation_fields_are_required(self):
         private, principals, envelope, registry = fixture()
-        for field in ("nonce", "idempotency_key", "correlation_id", "origin_ref", "target_warden_ref"):
+        for field in ("nonce", "idempotency_key", "correlation_id"):
             broken = copy.deepcopy(envelope)
             broken["signed_claim"].pop(field)
             broken["signature_b64"] = base64.b64encode(private.sign(canonical_json(broken["signed_claim"]))).decode()
             result = evaluate_warden_request(broken, principals, registry, {}, now=NOW)
             self.assertFalse(result["request_validated"], field)
             self.assertEqual(result["reason"], "invalid_warden_request", field)
+
+    def test_request_cannot_assert_provider_warden_principal_or_authority(self):
+        private, principals, envelope, registry = fixture()
+        forbidden = (
+            ("provider_id", "P1"),
+            ("target_warden_ref", "warden:test"),
+            ("principal_ref", "digitalme:claimed"),
+            ("authority_ref", "authority:claimed"),
+            ("warden_decision_ref", "decision:claimed"),
+            ("execution_authorized", True),
+            ("admitted", True),
+        )
+        for field, value in forbidden:
+            broken = copy.deepcopy(envelope)
+            broken["signed_claim"][field] = value
+            broken["signature_b64"] = base64.b64encode(private.sign(canonical_json(broken["signed_claim"]))).decode()
+            result = evaluate_warden_request(broken, principals, registry, {}, now=NOW)
+            self.assertFalse(result["request_validated"], field)
+            self.assertEqual(result["reason"], "caller_authority_or_routing_assertion_not_allowed", field)
+
+    def test_provider_identity_hidden_in_constraints_is_rejected(self):
+        private, principals, envelope, registry = fixture()
+        envelope["signed_claim"]["constraints"]["provider_id"] = "P1"
+        envelope["signature_b64"] = base64.b64encode(private.sign(canonical_json(envelope["signed_claim"]))).decode()
+        result = evaluate_warden_request(envelope, principals, registry, {}, now=NOW)
+        self.assertEqual(result["reason"], "caller_authority_or_routing_assertion_not_allowed")
 
     def test_request_cannot_name_provider(self):
         private, principals, envelope, registry = fixture()
