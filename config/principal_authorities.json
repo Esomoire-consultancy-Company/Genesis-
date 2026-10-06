@@ -1,0 +1,6 @@
+{
+  "schema_version": "genesis.principal-authority-registry.r0.8",
+  "registry_id": "GENESIS-PRINCIPAL-AUTHORITY-REGISTRY-001",
+  "state": "ACTIVE_EMPTY",
+  "authorities": []
+}
