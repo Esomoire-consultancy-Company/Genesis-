@@ -30,11 +30,11 @@ def _parse_time(value):
         raise WardenAdmissionError("INVALID_WARDEN_DECISION_TIME")
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError as exc:
+        if parsed.tzinfo is None:
+            raise WardenAdmissionError("WARDEN_DECISION_TIME_MUST_BE_OFFSET_AWARE")
+        return parsed.astimezone(timezone.utc)
+    except (ValueError, OverflowError) as exc:
         raise WardenAdmissionError("INVALID_WARDEN_DECISION_TIME") from exc
-    if parsed.tzinfo is None:
-        raise WardenAdmissionError("WARDEN_DECISION_TIME_MUST_BE_OFFSET_AWARE")
-    return parsed.astimezone(timezone.utc)
 
 
 def _valid_public_key(value):
@@ -159,9 +159,11 @@ def _verify_ed25519(public_key_b64, signature_b64, payload):
         return False
 
 
-def _base(reason):
+def not_admitted_projection(reason):
     return {
         "schema_version": DECISION_SCHEMA,
+        "projection_only": True,
+        "request_evaluation": False,
         "admitted": False,
         "admission_state": "NOT_ADMITTED",
         "reason": reason,
@@ -175,30 +177,45 @@ def _scope_allows(allowed, requested):
     return "*" in allowed or set(requested).issubset(set(allowed))
 
 
+def provider_pre_admission_check(provider_registry, provider_id, env):
+    providers = provider_registry.get("providers", []) if isinstance(provider_registry, dict) else []
+    provider = next((item for item in providers if item.get("provider_id") == provider_id), None)
+    if provider is None:
+        return False, "provider_not_registered"
+    if provider.get("state") == "SUSPENDED":
+        return False, "provider_suspended"
+    if provider.get("state") == "RETIRED":
+        return False, "provider_retired"
+    binding = provider.get("endpoint_binding_env")
+    if binding and not env.get(binding):
+        return False, "provider_binding_missing"
+    return True, "provider_ready_for_warden_evaluation"
+
+
 def evaluate_warden_admission(
     envelope, qualification_result, provider_id, capability_scope, authority_registry, now=None
 ):
     if envelope is None:
         if not isinstance(qualification_result, dict) or not qualification_result.get("qualified"):
-            return _base("provider_not_eligible_for_warden_evaluation")
-        return _base("warden_decision_missing")
+            return not_admitted_projection("provider_not_eligible_for_warden_evaluation")
+        return not_admitted_projection("warden_decision_missing")
     try:
         validate_warden_decision(envelope)
     except WardenAdmissionError:
-        return _base("invalid_warden_decision")
+        return not_admitted_projection("invalid_warden_decision")
 
     if not isinstance(qualification_result, dict) or not qualification_result.get("qualified"):
-        return _base("provider_not_eligible_for_warden_evaluation")
+        return not_admitted_projection("provider_not_eligible_for_warden_evaluation")
     if qualification_result.get("warden_admission_eligibility") != "ELIGIBLE_FOR_WARDEN_EVALUATION":
-        return _base("provider_not_eligible_for_warden_evaluation")
+        return not_admitted_projection("provider_not_eligible_for_warden_evaluation")
 
     validate_warden_authority_registry(authority_registry)
     if authority_registry.get("state") != "ACTIVE":
-        return _base("warden_authority_registry_not_active")
+        return not_admitted_projection("warden_authority_registry_not_active")
 
     claim = envelope["signed_claim"]
     if claim["signing_domain"] != SIGNING_DOMAIN:
-        return _base("invalid_signing_domain")
+        return not_admitted_projection("invalid_signing_domain")
     signer = next(
         (
             item for item in authority_registry["authorities"]
@@ -207,35 +224,35 @@ def evaluate_warden_admission(
         None,
     )
     if signer is None:
-        return _base("unknown_warden_signing_key")
+        return not_admitted_projection("unknown_warden_signing_key")
     if signer["state"] != "ACTIVE":
-        return _base("warden_signing_key_not_active")
+        return not_admitted_projection("warden_signing_key_not_active")
     if signer["key_purpose"] != KEY_PURPOSE:
-        return _base("invalid_warden_key_purpose")
+        return not_admitted_projection("invalid_warden_key_purpose")
     if not _verify_ed25519(signer["public_key_b64"], envelope["signature_b64"], canonical_json(claim)):
-        return _base("signature_verification_failed")
+        return not_admitted_projection("signature_verification_failed")
 
     if claim["provider_id"] != provider_id:
-        return _base("provider_scope_mismatch")
+        return not_admitted_projection("provider_scope_mismatch")
     requested = capability_scope
     if not isinstance(requested, list) or not requested or any(
         not isinstance(value, str) or not value.strip() for value in requested
     ):
-        return _base("capability_scope_mismatch")
+        return not_admitted_projection("capability_scope_mismatch")
     if not set(requested).issubset(set(claim["capability_scope"])):
-        return _base("capability_scope_mismatch")
+        return not_admitted_projection("capability_scope_mismatch")
     if not set(requested).issubset(set(qualification_result.get("capability_scope", []))):
-        return _base("capability_not_qualified")
+        return not_admitted_projection("capability_not_qualified")
     if not _scope_allows(signer["scope"]["providers"], [provider_id]):
-        return _base("warden_provider_authority_out_of_scope")
+        return not_admitted_projection("warden_provider_authority_out_of_scope")
     if not _scope_allows(signer["scope"]["capabilities"], requested):
-        return _base("warden_capability_authority_out_of_scope")
+        return not_admitted_projection("warden_capability_authority_out_of_scope")
 
     binding = claim["qualification_binding"]
     if binding["authority_id"] != qualification_result.get("qualification_authority"):
-        return _base("qualification_binding_mismatch")
+        return not_admitted_projection("qualification_binding_mismatch")
     if binding["qualification_result_digest"] != decision_digest(qualification_result):
-        return _base("qualification_binding_mismatch")
+        return not_admitted_projection("qualification_binding_mismatch")
 
     issued, expires = _parse_time(claim["issued_at"]), _parse_time(claim["expires_at"])
     current = now or datetime.now(timezone.utc)
@@ -243,14 +260,14 @@ def evaluate_warden_admission(
         raise WardenAdmissionError("NOW_MUST_BE_OFFSET_AWARE")
     current = current.astimezone(timezone.utc)
     if current < issued:
-        return _base("warden_decision_not_yet_valid")
+        return not_admitted_projection("warden_decision_not_yet_valid")
     if current >= expires:
-        return _base("warden_decision_expired")
+        return not_admitted_projection("warden_decision_expired")
     if claim["decision"] == "DENY":
-        return _base("warden_denied")
+        return not_admitted_projection("warden_denied")
 
     return {
-        **_base("warden_allowed_scoped_admission"),
+        **not_admitted_projection("warden_allowed_scoped_admission"),
         "admitted": True,
         "admission_state": "ADMITTED",
         "decision_id": claim["decision_id"],
