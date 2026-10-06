@@ -24,6 +24,8 @@ class GenesisContractTests(unittest.TestCase):
             "warden-qualification-eligibility-projection",
             "warden-admission-decision-evaluation",
             "scoped-admission-projection",
+            "warden-authority-registry",
+            "ed25519-warden-decision-verification",
         ):
             self.assertIn(capability, status["capabilities"])
 
