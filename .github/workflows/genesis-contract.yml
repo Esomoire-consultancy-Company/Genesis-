@@ -18,5 +18,5 @@ jobs:
         run: python -m pip install -r requirements.txt
       - name: Validate Python and registry
         run: |
-          python -m compileall -q genesis_qualification.py genesis_qualification_authority.py genesis_capability_registry.py genesis_contract.py genesis_http.py genesis_runtime.py main.py
+          python -m compileall -q genesis_qualification.py genesis_qualification_authority.py genesis_warden_admission.py genesis_capability_registry.py genesis_contract.py genesis_http.py genesis_runtime.py main.py
           python -m unittest discover -s tests -v
