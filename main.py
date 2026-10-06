@@ -1,5 +1,6 @@
 import json
 import os
+import socket
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
@@ -8,6 +9,7 @@ from genesis_http import build_response, build_action_response
 
 MAX_REQUEST_BYTES = 65536
 MAX_JSON_DEPTH = 64
+REQUEST_READ_TIMEOUT_SECONDS = 5.0
 
 
 def _json_depth_exceeds(value, limit=MAX_JSON_DEPTH):
@@ -58,8 +60,12 @@ class GenesisHandler(BaseHTTPRequestHandler):
             self._write_json(413 if length > MAX_REQUEST_BYTES else 400, {"error": "invalid_request_size"})
             return
         try:
+            self.connection.settimeout(REQUEST_READ_TIMEOUT_SECONDS)
             payload = json.loads(self.rfile.read(length))
-        except (json.JSONDecodeError, UnicodeDecodeError, RecursionError):
+        except socket.timeout:
+            self._write_json(408, {"error": "request_timeout"})
+            return
+        except (ValueError, UnicodeDecodeError, RecursionError):
             self._write_json(400, {"error": "invalid_json"})
             return
         if _json_depth_exceeds(payload):
