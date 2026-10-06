@@ -117,8 +117,7 @@ def load_principal_authority_registry(env, default_path="config/principal_author
 
 
 def validate_warden_request(envelope):
-    if not isinstance(envelope, dict) or envelope.get("schema_version") != REQUEST_SCHEMA:
-        raise WardenRequestError("INVALID_WARDEN_REQUEST")
+    if not isinstance(envelope, dict) or envelope.get("schema_version") != REQUEST_SCHEMA:\n        raise WardenRequestError("INVALID_WARDEN_REQUEST")\n    if set(envelope) != {"schema_version", "signed_claim", "signature_b64"}:\n        raise WardenRequestError("INVALID_WARDEN_REQUEST")
     claim = envelope.get("signed_claim")
     signature = envelope.get("signature_b64")
     if not isinstance(claim, dict) or not isinstance(signature, str) or not signature:
