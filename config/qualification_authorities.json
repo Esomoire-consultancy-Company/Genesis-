@@ -1,0 +1,6 @@
+{
+  "schema_version": "genesis.qualification-authority-registry.r0.6",
+  "registry_id": "GENESIS-QUALIFICATION-AUTHORITY-REGISTRY-001",
+  "state": "ACTIVE_EMPTY",
+  "authorities": []
+}
