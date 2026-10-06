@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from genesis_http import build_response
+from genesis_http import build_response, build_action_response
 
 
 class GenesisHttpContractTests(unittest.TestCase):
@@ -111,6 +111,32 @@ class GenesisHttpContractTests(unittest.TestCase):
         self.assertEqual(payload["admission_state"], "NOT_ADMITTED")
         self.assertEqual(payload["reason"], "invalid_warden_decision")
         self.assertEqual(payload["execution_authority"], "NONE")
+
+    def test_warden_request_action_is_validation_only(self):
+        envelope = {"schema_version": "genesis.warden-evaluation-request.r0.8"}
+        projected = {
+            "request_validated": True,
+            "request_state": "VALIDATED_NOT_DISPATCHED",
+            "dispatch_authority": "NONE",
+            "execution_authority": "NONE",
+        }
+        with patch("genesis_http.load_principal_authority_registry", return_value={}), \
+             patch("genesis_http.load_registry", return_value={}), \
+             patch("genesis_http.evaluate_warden_request", return_value=projected) as evaluate:
+            status, payload = build_action_response(
+                "POST", "/v1/genesis/warden-request", {}, envelope
+            )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload, projected)
+        self.assertEqual(evaluate.call_args.args[0], envelope)
+
+    def test_warden_request_rejects_wrong_method_and_route(self):
+        status, payload = build_action_response("GET", "/v1/genesis/warden-request", {}, {})
+        self.assertEqual(status, 405)
+        self.assertEqual(payload["error"], "method_not_allowed")
+        status, payload = build_action_response("POST", "/missing", {}, {})
+        self.assertEqual(status, 404)
+        self.assertEqual(payload["error"], "not_found")
 
     def test_unknown_route_returns_404(self):
         status, payload = build_response("/missing", {}, lambda host, port: False)
