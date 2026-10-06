@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from genesis_warden_request import canonical_json, evaluate_warden_request
+from genesis_warden_request import canonical_json, request_digest, evaluate_warden_request
 
 NOW = datetime(2026, 10, 7, 0, 0, tzinfo=timezone.utc)
 
@@ -85,6 +85,7 @@ class WardenRequestTests(unittest.TestCase):
         self.assertEqual(result["idempotency_key"], "IDEMP-001")
         self.assertEqual(result["correlation_id"], "CORR-001")
         self.assertEqual(result["principal_ref"], "digitalme:test-principal")
+        self.assertEqual(result["request_digest"], request_digest(envelope["signed_claim"]))
 
     def test_replay_and_correlation_fields_are_required(self):
         private, principals, envelope, registry = fixture()
@@ -163,6 +164,15 @@ class WardenRequestTests(unittest.TestCase):
         envelope["signed_claim"]["requested_effect"] = "DEPLOY_APPLICATION"
         self.assertEqual(evaluate_warden_request(envelope, principals, registry, {}, now=NOW)["reason"],
                          "signature_verification_failed")
+
+    def test_request_digest_is_deterministic_and_material_changes_change_it(self):
+        _, _, envelope, _ = fixture()
+        first = request_digest(envelope["signed_claim"])
+        second = request_digest(copy.deepcopy(envelope["signed_claim"]))
+        self.assertEqual(first, second)
+        changed = copy.deepcopy(envelope["signed_claim"])
+        changed["requested_effect"] = "DEPLOY_APPLICATION"
+        self.assertNotEqual(first, request_digest(changed))
 
     def test_result_never_claims_warden_acceptance_or_execution(self):
         _, principals, envelope, registry = fixture()
