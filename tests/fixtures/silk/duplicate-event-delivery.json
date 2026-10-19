@@ -1,0 +1,27 @@
+{
+  "initial_state": "ROUTE_SELECTED",
+  "event": {
+    "event_id": "silk:event:test:duplicate:001",
+    "event_type": "EXECUTION_REQUESTED",
+    "instruction_ref": "silk:instruction:test:duplicate-001",
+    "principal_ref": "digitalme:test:creator-a",
+    "silk_account_ref": "silk:account:test:creator-a",
+    "correlation_id": "silk:correlation:test:duplicate-001",
+    "occurred_at": "2026-08-23T04:50:00Z",
+    "actor": {"actor_class": "SYNNERGYZE", "actor_ref": "synnergyze:test:orchestrator"},
+    "transition": {"from_state": "ROUTE_SELECTED", "to_state": "EXECUTION_REQUESTED"},
+    "warden_decision_ref": "warden:decision:test:duplicate-001",
+    "execution_route_ref": "synnergyze:route:test:registry-entitlement",
+    "version": "R0.1"
+  },
+  "deliveries": [
+    "silk:event:test:duplicate:001",
+    "silk:event:test:duplicate:001"
+  ],
+  "expected": {
+    "applied_transition_count": 1,
+    "duplicate_delivery_count": 1,
+    "final_state": "EXECUTION_REQUESTED",
+    "downstream_execution_requests": 1
+  }
+}
